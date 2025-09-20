@@ -31,7 +31,7 @@ export default function Login() {
     const result = await login(email, password);
 
     if (!result.success) {
-      setError(result.error);
+      setError(result.error || "Error en el inicio de sesión");
     }
     // Si es exitoso, el contexto automáticamente mostrará las tabs
     // No necesitas hacer router.replace aquí
