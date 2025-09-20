@@ -29,16 +29,11 @@ export default function Login() {
     try {
       const result = await login(email, password);
 
-      if (result.success) {
-        console.log("Login exitoso, redirigiendo a home");
-        router.replace("../(tabs)/home");
-      } else {
-        setError(result.error || "Error de autenticación");
-      }
-    } catch (error) {
-      console.error("Error en handleLogin:", error);
-      setError("Error inesperado. Intenta de nuevo.");
+    if (!result.success) {
+      setError(result.error);
     }
+    // Si es exitoso, el contexto automáticamente mostrará las tabs
+    // No necesitas hacer router.replace aquí
   };
 
   return (
