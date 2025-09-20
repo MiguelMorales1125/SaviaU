@@ -7,32 +7,39 @@ import {
   StyleSheet,
   Image,
   ImageBackground,
-  Alert,
+  ActivityIndicator,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "expo-router";
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, loading } = useAuth();
   const router = useRouter();
-  const [user, setUser] = useState("");
+  const [email, setEmail] = useState(""); 
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  const handleLogin = () => {
-    if (!user || !password) {
-      setError("Usuario y contraseña requeridos");
+  const handleLogin = async () => {
+    if (!email || !password) {
+      setError("Email y contraseña requeridos");
       return;
     }
+
     setError("");
-    login(user, password);
-    router.replace("/(tabs)/home");
+
+    // Llama al login del contexto y espera la respuesta
+    const result = await login(email, password);
+
+    if (!result.success) {
+      setError(result.error);
+    }
+    // Si es exitoso, el contexto automáticamente mostrará las tabs
+    // No necesitas hacer router.replace aquí
   };
 
   return (
     <ImageBackground
-      source={require("../../assets/images/Fondo.png")} 
+      source={require("../../assets/images/Fondo.png")}
       style={styles.background}
       resizeMode="cover"
       blurRadius={2}
@@ -46,19 +53,20 @@ export default function Login() {
               resizeMode="contain"
             />
           </View>
-          {error ? (
-            <Text style={styles.errorText}>{error}</Text>
-          ) : null}
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
           <TextInput
             style={styles.input}
-            placeholder="Usuario"
-            value={user}
-            onChangeText={setUser}
+            placeholder="Email"
+            placeholderTextColor="#aaa"
+            value={email}
+            onChangeText={setEmail}
             autoCapitalize="none"
-            autoComplete="off"
+            keyboardType="email-address"
+            autoComplete="email"
             autoCorrect={false}
-            keyboardType="default"
-            textContentType="none"
+            editable={!loading}
           />
           <TextInput
             style={styles.input}
@@ -69,18 +77,31 @@ export default function Login() {
             secureTextEntry
             autoComplete="off"
             autoCorrect={false}
+            editable={!loading}
           />
-          <TouchableOpacity style={styles.button} onPress={handleLogin}>
-            <Text style={styles.buttonText}>Ingresar</Text>
+
+          <TouchableOpacity
+            style={[styles.button, loading && styles.disabledButton]}
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Ingresar</Text>
+            )}
           </TouchableOpacity>
+
           <TouchableOpacity
             style={[styles.button, { backgroundColor: "#28a745" }]}
-            onPress={() => router.replace("/register")}
+            onPress={() => router.replace("/(auth)/register")}
+            disabled={loading}
           >
             <Text style={styles.buttonText}>Registrarse</Text>
           </TouchableOpacity>
+
           <TouchableOpacity>
-            <Text style={styles.forgot}>¿Olvidaste tu contraseña?</Text>
+            <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -141,18 +162,8 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 16,
   },
-  secondaryButton: {
-    width: "100%",
-    backgroundColor: "#43b36a",
-    padding: 14,
-    borderRadius: 8,
-    alignItems: "center",
-    marginTop: 12,
-  },
-  secondaryButtonText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 16,
+  disabledButton: {
+    backgroundColor: "#a0a0a0",
   },
   forgotText: {
     marginTop: 16,
