@@ -25,6 +25,7 @@ export default function Register() {
       <TextInput
         style={styles.input}
         placeholder="Nombre"
+        placeholderTextColor="#2a7c0cff" 
         value={nombre}
         onChangeText={setNombre}
         autoComplete="off"
@@ -33,12 +34,14 @@ export default function Register() {
       <TextInput
         style={styles.input}
         placeholder="Apellidos"
+        placeholderTextColor="#2a7c0cff" 
         value={apellidos}
         onChangeText={setApellidos}
       />
       <TextInput
         style={styles.input}
         placeholder="Correo electrónico"
+        placeholderTextColor="#2a7c0cff" 
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
@@ -47,12 +50,14 @@ export default function Register() {
       <TextInput
         style={styles.input}
         placeholder="Carrera"
+        placeholderTextColor="#2a7c0cff" 
         value={carrera}
         onChangeText={setCarrera}
       />
       <TextInput
         style={styles.input}
         placeholder="Semestre"
+        placeholderTextColor="#2a7c0cff"  
         value={semestre}
         onChangeText={setSemestre}
         keyboardType="numeric"
@@ -60,6 +65,7 @@ export default function Register() {
       <TextInput
         style={styles.input}
         placeholder="Contraseña"
+        placeholderTextColor="#2a7c0cff" 
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -93,6 +99,8 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 16,
     fontSize: 16,
+    color:"#000",
+    backgroundColor:"#fff",
   },
   loginText: {
     marginTop: 16,

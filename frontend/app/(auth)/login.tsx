@@ -9,13 +9,12 @@ import {
   ImageBackground,
   ActivityIndicator,
 } from "react-native";
+import { router } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
-import { useRouter } from "expo-router";
 
 export default function Login() {
   const { login, loading } = useAuth();
-  const router = useRouter();
-  const [email, setEmail] = useState(""); 
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
@@ -27,14 +26,19 @@ export default function Login() {
 
     setError("");
 
-    // Llama al login del contexto y espera la respuesta
-    const result = await login(email, password);
+    try {
+      const result = await login(email, password);
 
-    if (!result.success) {
-      setError(result.error);
+      if (result.success) {
+        console.log("Login exitoso, redirigiendo a home");
+        router.replace("../(tabs)/home");
+      } else {
+        setError(result.error || "Error de autenticación");
+      }
+    } catch (error) {
+      console.error("Error en handleLogin:", error);
+      setError("Error inesperado. Intenta de nuevo.");
     }
-    // Si es exitoso, el contexto automáticamente mostrará las tabs
-    // No necesitas hacer router.replace aquí
   };
 
   return (

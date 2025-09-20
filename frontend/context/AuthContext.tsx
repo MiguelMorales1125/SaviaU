@@ -1,5 +1,5 @@
 // context/AuthContext.tsx
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 
 // Define los tipos
 interface User {
@@ -15,6 +15,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ success: boolean; data?: any; error?: string }>;
   logout: () => void;
   loading: boolean;
+  initialLoading: boolean; // ✅ Nuevo: loading inicial
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -22,6 +23,7 @@ const AuthContext = createContext<AuthContextType>({
   login: async (_email: string, _password: string) => ({ success: false }),
   logout: () => {},
   loading: false,
+  initialLoading: true,
 });
 
 interface AuthProviderProps {
@@ -31,6 +33,50 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true); // ✅ Nuevo estado
+
+  // ✅ Verificar estado de autenticación al iniciar la app
+  useEffect(() => {
+    checkInitialAuthState();
+  }, []);
+
+  const checkInitialAuthState = async () => {
+    try {
+      console.log('Verificando estado inicial de autenticación...');
+      
+      // Aquí podrías verificar si hay un token guardado
+      // const savedToken = await AsyncStorage.getItem('userToken');
+      // const savedUser = await AsyncStorage.getItem('userData');
+      
+      // if (savedToken && savedUser) {
+      //   try {
+      //     // Verificar si el token sigue siendo válido
+      //     const response = await fetch('http://localhost:8080/api/auth/verify', {
+      //       headers: { 'Authorization': `Bearer ${savedToken}` }
+      //     });
+      //     
+      //     if (response.ok) {
+      //       setUser(JSON.parse(savedUser));
+      //       console.log('Usuario restaurado desde storage');
+      //     }
+      //   } catch (error) {
+      //     console.log('Token inválido, limpiando storage');
+      //     await AsyncStorage.removeItem('userToken');
+      //     await AsyncStorage.removeItem('userData');
+      //   }
+      // }
+      
+      // Por ahora, simular verificación
+      setTimeout(() => {
+        console.log('Verificación inicial completada - no hay usuario guardado');
+        setInitialLoading(false);
+      }, 1000);
+      
+    } catch (error) {
+      console.log('Error en verificación inicial:', error);
+      setInitialLoading(false);
+    }
+  };
 
   const login = async (email: string, password: string) => {
     setLoading(true);
@@ -53,12 +99,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (response.ok) {
         const loginData = await response.json();
         console.log('Login exitoso:', loginData);
+        
+        // ✅ Guardar usuario en el estado
         setUser(loginData.user);
+        
+        // ✅ Guardar datos para persistencia (opcional)
+        // await AsyncStorage.setItem('userToken', loginData.token);
+        // await AsyncStorage.setItem('userData', JSON.stringify(loginData.user));
+        
         return { success: true, data: loginData };
       } else {
         const errorData = await response.text();
         console.error('Error del servidor:', errorData);
-        return { success: false, error: 'Error interno del servidor' };
+        return { success: false, error: 'Credenciales incorrectas' };
       }
     } catch (error) {
       console.error('Error de red:', error);
@@ -69,12 +122,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const logout = () => {
+    console.log('Cerrando sesión...');
     setUser(null);
-    // AsyncStorage.removeItem('accessToken');
+    
+    // ✅ Limpiar datos guardados
+    // AsyncStorage.removeItem('userToken');
+    // AsyncStorage.removeItem('userData');
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      login, 
+      logout, 
+      loading, 
+      initialLoading 
+    }}>
       {children}
     </AuthContext.Provider>
   );
