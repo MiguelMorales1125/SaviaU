@@ -5,7 +5,7 @@ import { useRouter,Href } from 'expo-router';
 export const options = {
   headerShown: false,
   title: 'SaviaU',
-  headerBackVisible: false, // Oculta la flecha de retroceso
+  headerBackVisible: false,
 };
 
 export default function Index() {

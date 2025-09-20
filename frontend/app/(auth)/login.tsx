@@ -52,13 +52,13 @@ export default function Login() {
           <TextInput
             style={styles.input}
             placeholder="Usuario"
-            placeholderTextColor="#aaa"
             value={user}
             onChangeText={setUser}
             autoCapitalize="none"
-            keyboardType="email-address"
             autoComplete="off"
             autoCorrect={false}
+            keyboardType="default"
+            textContentType="none"
           />
           <TextInput
             style={styles.input}
