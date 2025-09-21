@@ -31,7 +31,7 @@ export default function Login() {
 
       if (result.success) {
         console.log("Login exitoso, redirigiendo a home");
-        router.replace("../(tabs)/");
+        router.replace("../(tabs)/home");
       } else {
         setError(result.error || "Error de autenticación");
       }
