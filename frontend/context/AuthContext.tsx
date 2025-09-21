@@ -44,29 +44,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       console.log('Verificando estado inicial de autenticación...');
       
-      // Aquí podrías verificar si hay un token guardado
-      // const savedToken = await AsyncStorage.getItem('userToken');
-      // const savedUser = await AsyncStorage.getItem('userData');
-      
-      // if (savedToken && savedUser) {
-      //   try {
-      //     // Verificar si el token sigue siendo válido
-      //     const response = await fetch('http://localhost:8080/api/auth/verify', {
-      //       headers: { 'Authorization': `Bearer ${savedToken}` }
-      //     });
-      //     
-      //     if (response.ok) {
-      //       setUser(JSON.parse(savedUser));
-      //       console.log('Usuario restaurado desde storage');
-      //     }
-      //   } catch (error) {
-      //     console.log('Token inválido, limpiando storage');
-      //     await AsyncStorage.removeItem('userToken');
-      //     await AsyncStorage.removeItem('userData');
-      //   }
-      // }
-      
-      // Por ahora, simular verificación
       setTimeout(() => {
         console.log('Verificación inicial completada - no hay usuario guardado');
         setInitialLoading(false);
@@ -100,12 +77,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const loginData = await response.json();
         console.log('Login exitoso:', loginData);
         
-        // ✅ Guardar usuario en el estado
+  
         setUser(loginData.user);
-        
-        // ✅ Guardar datos para persistencia (opcional)
-        // await AsyncStorage.setItem('userToken', loginData.token);
-        // await AsyncStorage.setItem('userData', JSON.stringify(loginData.user));
+  
+
         
         return { success: true, data: loginData };
       } else {
@@ -124,10 +99,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const logout = () => {
     console.log('Cerrando sesión...');
     setUser(null);
-    
-    // ✅ Limpiar datos guardados
-    // AsyncStorage.removeItem('userToken');
-    // AsyncStorage.removeItem('userData');
+  
   };
 
   return (

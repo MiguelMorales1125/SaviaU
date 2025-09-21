@@ -31,7 +31,7 @@ export default function Login() {
 
       if (result.success) {
         console.log("Login exitoso, redirigiendo a tabs");
-        router.replace("/(tabs)/home"); 
+        router.replace("/(tabs)/home");
       } else {
         setError(result.error || "Error de autenticación");
       }
@@ -44,7 +44,7 @@ export default function Login() {
 
   return (
     <ImageBackground
-      source={require("../../assets/images/Fondo.png")}
+      source={require("../../assets/images/fondo2.jpeg")}
       style={styles.background}
       resizeMode="cover"
       blurRadius={2}
@@ -122,26 +122,25 @@ const styles = StyleSheet.create({
   },
   centeredContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    flexDirection: "row", 
+    alignItems: "stretch", 
   },
   formContainer: {
-    width: "90%",
-    maxWidth: 400,
+    width: "45%", 
     backgroundColor: "rgba(255,255,255,0.95)",
-    borderRadius: 20,
-    padding: 32,
+    padding: 40,
+    justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 2, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
   },
   logo: {
-    width: 235,
-    height: 235,
-    marginBottom: 10,
+    width: 450,
+    height: 450,
+    marginBottom: -80,
     alignSelf: "center",
   },
   input: {
@@ -149,18 +148,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#198754",
     borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
+    padding: 15,
+    marginBottom: 20,
     fontSize: 16,
-    backgroundColor: "#f6fafd",
+    backgroundColor: "#f8fffe",
+    minHeight: 50,
   },
   button: {
     width: "100%",
     backgroundColor: "#198754",
-    padding: 14,
+    padding: 16,
     borderRadius: 8,
     alignItems: "center",
-    marginTop: 8,
+    marginTop: 10,
+    minHeight: 50,
   },
   buttonText: {
     color: "#fff",
@@ -171,15 +172,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#a0a0a0",
   },
   forgotText: {
-    marginTop: 16,
+    marginTop: 20,
     color: "#198754",
     textAlign: "center",
     textDecorationLine: "underline",
+    fontSize: 14,
   },
   errorText: {
     color: "#d32f2f",
-    marginBottom: 12,
+    marginBottom: 15,
     fontWeight: "bold",
     textAlign: "center",
+    fontSize: 14,
   },
 });
