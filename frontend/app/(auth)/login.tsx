@@ -39,7 +39,13 @@ export default function Login() {
       console.error("Error en handleLogin:", error);
       setError("Error inesperado. Intenta de nuevo.");
     }
+    if (!result.success) {
+      setError(result.error || "Error en el inicio de sesión");
+    }
+    // Si es exitoso, el contexto automáticamente mostrará las tabs
+    // No necesitas hacer router.replace aquí
   };
+
 
   return (
     <ImageBackground
