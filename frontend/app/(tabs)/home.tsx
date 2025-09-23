@@ -1,16 +1,16 @@
 import { View, Text, Image } from 'react-native';
-import { homeStyles as styles } from './tabs-styles/home.styles';
+import { tabsStyles } from '../../styles/tabs.styles';
 
 export default function HomeScreen() {
   return (
-    <View style={styles.container}>
+    <View style={tabsStyles.homeContainer}>
       <Image
         source={require('../../assets/images/SaviaU-Logo.png')}
-        style={styles.logo}
+        style={tabsStyles.homeLogo}
         resizeMode="contain"
       />
-      <Text style={styles.title}>¡Bienvenido a SaviaU!</Text>
-      <Text style={styles.subtitle}>
+      <Text style={tabsStyles.homeTitle}>¡Bienvenido a SaviaU!</Text>
+      <Text style={tabsStyles.homeSubtitle}>
         Tu plataforma para retos, noticias y temáticas educativas.
       </Text>
     </View>

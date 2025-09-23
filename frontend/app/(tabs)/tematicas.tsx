@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
-import { tematicasStyles as styles } from './tabs-styles/tematicas.styles';
+import { tabsStyles } from '../../styles/tabs.styles';
 
 interface TematicaCard {
   id: string;
@@ -93,31 +93,31 @@ export default function Tematicas() {
   const renderTematicaCard = (item: TematicaCard) => (
     <TouchableOpacity
       key={item.id}
-      style={[styles.card, { backgroundColor: item.color }]}
+      style={[tabsStyles.tematicasCard, { backgroundColor: item.color }]}
       onPress={() => handleTematicaPress(item)}
       activeOpacity={0.8}
     >
-      <View style={styles.iconContainer}>
+      <View style={tabsStyles.tematicasIconContainer}>
         <Ionicons name={item.icon} size={28} color="white" />
       </View>
-      <View style={styles.textContainer}>
-        <Text style={styles.cardTitle}>{item.title}</Text>
+      <View style={tabsStyles.tematicasTextContainer}>
+        <Text style={tabsStyles.tematicasCardTitle}>{item.title}</Text>
         {item.subtitle ? (
-          <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
+          <Text style={tabsStyles.tematicasCardSubtitle}>{item.subtitle}</Text>
         ) : null}
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.moduleTitle}>MÓDULO 2</Text>
-        <Text style={styles.title}>ÁREAS TEMÁTICAS DE LA</Text>
-        <Text style={styles.title}>EDUCACIÓN AMBIENTAL</Text>
+    <View style={tabsStyles.tematicasContainer}>
+      <View style={tabsStyles.tematicasHeader}>
+        <Text style={tabsStyles.tematicasModuleTitle}>MÓDULO 2</Text>
+        <Text style={tabsStyles.tematicasTitle}>ÁREAS TEMÁTICAS DE LA</Text>
+        <Text style={tabsStyles.tematicasTitle}>EDUCACIÓN AMBIENTAL</Text>
       </View>
       
-      <View style={styles.grid}>
+      <View style={tabsStyles.tematicasGrid}>
         {tematicasData.map(renderTematicaCard)}
       </View>
     </View>
