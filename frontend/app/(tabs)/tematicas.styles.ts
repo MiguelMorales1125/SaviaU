@@ -1,9 +1,9 @@
 import { StyleSheet, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
-const cardWidth = (width - 50) / 2; // Reducir márgenes
-const availableHeight = height - 150; // Altura disponible después del header
-const cardHeight = Math.min(95, (availableHeight - 60) / 5); // 5 filas, altura máxima 95 
+const cardWidth = (width - 40) / 2; 
+const availableHeight = height - 150;
+const cardHeight = Math.min(110, (availableHeight - 50) / 5); 
 
 export const tematicasStyles = StyleSheet.create({
   container: {
@@ -42,9 +42,9 @@ export const tematicasStyles = StyleSheet.create({
   card: {
     width: cardWidth,
     height: cardHeight,
-    borderRadius: 10,
-    marginBottom: 6,
-    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+    padding: 16,
     justifyContent: 'space-between',
     shadowColor: '#000',
     shadowOffset: {
@@ -63,16 +63,16 @@ export const tematicasStyles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   cardTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#ffffff',
-    lineHeight: 16,
+    lineHeight: 18,
   },
   cardSubtitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#ffffff',
-    lineHeight: 16,
-    marginTop: 1,
+    lineHeight: 18,
+    marginTop: 2,
   },
 });

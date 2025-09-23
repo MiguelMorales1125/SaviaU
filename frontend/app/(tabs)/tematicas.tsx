@@ -98,7 +98,7 @@ export default function Tematicas() {
       activeOpacity={0.8}
     >
       <View style={styles.iconContainer}>
-        <Ionicons name={item.icon} size={24} color="white" />
+        <Ionicons name={item.icon} size={28} color="white" />
       </View>
       <View style={styles.textContainer}>
         <Text style={styles.cardTitle}>{item.title}</Text>
@@ -112,7 +112,7 @@ export default function Tematicas() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.moduleTitle}>MÓDULO 3</Text>
+        <Text style={styles.moduleTitle}>MÓDULO 2</Text>
         <Text style={styles.title}>ÁREAS TEMÁTICAS DE LA</Text>
         <Text style={styles.title}>EDUCACIÓN AMBIENTAL</Text>
       </View>
