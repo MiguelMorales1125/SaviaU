@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
-import { tematicasStyles as styles } from './tematicas.styles';
+import { tematicasStyles as styles } from './tabs-styles/tematicas.styles';
 
 interface TematicaCard {
   id: string;

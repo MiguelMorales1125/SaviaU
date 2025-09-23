@@ -1,5 +1,5 @@
 import { View, Text } from "react-native";
-import { retosStyles as styles } from './retos.styles';
+import { retosStyles as styles } from './tabs-styles/retos.styles';
 
 export default function Retos() {
   return (
