@@ -1,5 +1,5 @@
 import { View, Text, Image } from 'react-native';
-import { homeStyles as styles } from './tabs-styles/home.styles';
+import { homeStyles as styles } from '../tabs-styles/home.styles';
 
 export default function HomeScreen() {
   return (
