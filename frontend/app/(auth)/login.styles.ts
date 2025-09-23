@@ -74,4 +74,27 @@ export const loginStyles = StyleSheet.create({
     textAlign: "center",
     fontSize: 14,
   },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+  loadingContent: {
+    alignItems: 'center',
+  },
+  loadingLogo: {
+    width: 500,
+    height: 500,
+    marginBottom: 30,
+  },
+  loadingSpinner: {
+    marginVertical: 20,
+  },
+  loadingText: {
+    fontSize: 18,
+    color: '#6c757d',
+    fontWeight: '500',
+  },
 });

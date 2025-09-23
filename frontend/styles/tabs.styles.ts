@@ -1,7 +1,7 @@
 import { StyleSheet, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
-const cardWidth = (width - 40) / 2;
+const cardWidth = (width - 40) / 2; 
 const availableHeight = height - 150;
 const cardHeight = Math.min(110, (availableHeight - 50) / 5);
 

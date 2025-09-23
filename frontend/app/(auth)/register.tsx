@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Alert, ScrollView, TouchableOpacity, Image, ImageBackground } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TextInput, Alert, ScrollView, TouchableOpacity, Image, ImageBackground, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 import { registerStyles as styles } from './register.styles';
 
@@ -11,6 +11,32 @@ export default function Register() {
   const [apellidos, setApellidos] = useState('');
   const [carrera, setCarrera] = useState('');
   const [semestre, setSemestre] = useState('');
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  const logoScale = useRef(new Animated.Value(0.8)).current;
+
+  useEffect(() => {
+ 
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.spring(logoScale, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const handleRegister = () => {
     if (!email || !password || !nombre || !apellidos || !carrera || !semestre) {
@@ -33,14 +59,27 @@ export default function Register() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.centeredContainer}>
-          <View style={styles.formContainer}>
-            <View style={{ alignItems: "center", marginBottom: 15 }}>
+          <Animated.View 
+            style={[
+              styles.formContainer,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }]
+              }
+            ]}
+          >
+            <Animated.View 
+              style={[
+                { alignItems: "center", marginBottom: 15 },
+                { transform: [{ scale: logoScale }] }
+              ]}
+            >
               <Image
                 source={require("../../assets/images/Logo-SaviaU.png")}
                 style={styles.logo}
                 resizeMode="contain"
               />
-            </View>
+            </Animated.View>
             
             <Text style={styles.title}>Crear cuenta</Text>
             
@@ -110,7 +149,7 @@ export default function Register() {
             <Text style={styles.loginText} onPress={() => router.replace('/login')}>
               ¿Ya tienes cuenta? Inicia sesión
             </Text>
-          </View>
+          </Animated.View>
         </View>
       </ScrollView>
     </ImageBackground>
