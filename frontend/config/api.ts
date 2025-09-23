@@ -1,10 +1,7 @@
 // Configuración de API endpoints
 export const API_CONFIG = {
-  // Para desarrollo local
-  // BASE_URL: 'http://localhost:8080',
-  
-  // Para producción (Render)
-  BASE_URL: 'https://saviau.onrender.com',
+  // Detectar automáticamente el entorno
+  BASE_URL: __DEV__ ? 'http://localhost:8080' : 'https://saviau.onrender.com',
   
   ENDPOINTS: {
     LOGIN: '/api/auth/login',
