@@ -24,7 +24,7 @@ function ProtectedTabs() {
         headerShown: false,
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         tabBarInactiveTintColor: 'gray',
-        tabBarStyle: { backgroundColor: '#e8fce8' },
+        tabBarStyle: { backgroundColor: '#edfce8ff' },
         tabBarButton: HapticTab,
       }}>
       <Tabs.Screen
