@@ -1,7 +1,5 @@
-// context/AuthContext.tsx
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 
-// Define los tipos
 interface User {
   id: string;
   email: string;
@@ -15,7 +13,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ success: boolean; data?: any; error?: string }>;
   logout: () => void;
   loading: boolean;
-  initialLoading: boolean; // ✅ Nuevo: loading inicial
+  initialLoading: boolean; 
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -33,9 +31,9 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true); // ✅ Nuevo estado
+  const [initialLoading, setInitialLoading] = useState(true); 
 
-  // ✅ Verificar estado de autenticación al iniciar la app
+ 
   useEffect(() => {
     checkInitialAuthState();
   }, []);

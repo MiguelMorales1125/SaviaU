@@ -11,7 +11,7 @@ export default function Index() {
     if (!initialLoading) {
       if (user) {
         console.log('Usuario encontrado, redirigiendo a tabs');
-        router.replace('/(tabs)');
+        router.replace('../(tabs)');
       } else {
         console.log('No hay usuario, redirigiendo a login');
         router.replace('/(auth)/login');

@@ -4,13 +4,13 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   Image,
   ImageBackground,
   ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
+import { loginStyles as styles } from "./login.styles";
 
 export default function Login() {
   const { login, loading } = useAuth();
@@ -44,7 +44,7 @@ export default function Login() {
 
   return (
     <ImageBackground
-      source={require("../../assets/images/fondo2.jpeg")}
+      source={require("../../assets/images/Fondo.png")}
       style={styles.background}
       resizeMode="cover"
       blurRadius={2}
@@ -113,76 +113,3 @@ export default function Login() {
     </ImageBackground>
   );
 }
-
-const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    width: "100%",
-    height: "100%",
-  },
-  centeredContainer: {
-    flex: 1,
-    flexDirection: "row", 
-    alignItems: "stretch", 
-  },
-  formContainer: {
-    width: "45%", 
-    backgroundColor: "rgba(255,255,255,0.95)",
-    padding: 40,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 2, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  logo: {
-    width: 450,
-    height: 450,
-    marginBottom: -80,
-    alignSelf: "center",
-  },
-  input: {
-    width: "100%",
-    borderWidth: 1,
-    borderColor: "#198754",
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 20,
-    fontSize: 16,
-    backgroundColor: "#f8fffe",
-    minHeight: 50,
-  },
-  button: {
-    width: "100%",
-    backgroundColor: "#198754",
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    marginTop: 10,
-    minHeight: 50,
-  },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  disabledButton: {
-    backgroundColor: "#a0a0a0",
-  },
-  forgotText: {
-    marginTop: 20,
-    color: "#198754",
-    textAlign: "center",
-    textDecorationLine: "underline",
-    fontSize: 14,
-  },
-  errorText: {
-    color: "#d32f2f",
-    marginBottom: 15,
-    fontWeight: "bold",
-    textAlign: "center",
-    fontSize: 14,
-  },
-});

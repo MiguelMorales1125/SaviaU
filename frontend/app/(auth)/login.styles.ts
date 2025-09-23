@@ -1,0 +1,77 @@
+import { StyleSheet } from 'react-native';
+
+export const loginStyles = StyleSheet.create({
+  background: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+  },
+  centeredContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  formContainer: {
+    width: "90%",
+    maxWidth: 400,
+    backgroundColor: "rgba(255,255,255,0.95)",
+    padding: 40,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  logo: {
+    width: 225,
+    height: 225,
+    marginBottom: -40,
+    alignSelf: "center",
+  },
+  input: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#198754",
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 20,
+    fontSize: 16,
+    backgroundColor: "#f8fffe",
+    minHeight: 50,
+  },
+  button: {
+    width: "100%",
+    backgroundColor: "#198754",
+    padding: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 10,
+    minHeight: 50,
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  disabledButton: {
+    backgroundColor: "#a0a0a0",
+  },
+  forgotText: {
+    marginTop: 20,
+    color: "#198754",
+    textAlign: "center",
+    textDecorationLine: "underline",
+    fontSize: 14,
+  },
+  errorText: {
+    color: "#d32f2f",
+    marginBottom: 15,
+    fontWeight: "bold",
+    textAlign: "center",
+    fontSize: 14,
+  },
+});

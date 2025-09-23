@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, Alert, ScrollView, TouchableOpacity, Image, ImageBackground } from 'react-native';
 import { useRouter } from 'expo-router';
+import { registerStyles as styles } from './register.styles';
 
 export default function Register() {
   const router = useRouter();
@@ -20,92 +21,98 @@ export default function Register() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Crear cuenta</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Nombre"
-        placeholderTextColor="#2a7c0cff" 
-        value={nombre}
-        onChangeText={setNombre}
-        autoComplete="off"
-        autoCorrect={false}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Apellidos"
-        placeholderTextColor="#2a7c0cff" 
-        value={apellidos}
-        onChangeText={setApellidos}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Correo electrónico"
-        placeholderTextColor="#2a7c0cff" 
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Carrera"
-        placeholderTextColor="#2a7c0cff" 
-        value={carrera}
-        onChangeText={setCarrera}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Semestre"
-        placeholderTextColor="#2a7c0cff"  
-        value={semestre}
-        onChangeText={setSemestre}
-        keyboardType="numeric"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Contraseña"
-        placeholderTextColor="#2a7c0cff" 
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <Button title="Registrarse" onPress={handleRegister} color="#198754" />
-      <Text style={styles.loginText} onPress={() => router.replace('/login')}>
-        ¿Ya tienes cuenta? Inicia sesión
-      </Text>
-    </ScrollView>
+    <ImageBackground
+      source={require("../../assets/images/Fondo.png")}
+      style={styles.background}
+      resizeMode="cover"
+      blurRadius={2}
+    >
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.centeredContainer}>
+          <View style={styles.formContainer}>
+            <View style={{ alignItems: "center", marginBottom: 15 }}>
+              <Image
+                source={require("../../assets/images/Logo-SaviaU.png")}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
+            
+            <Text style={styles.title}>Crear cuenta</Text>
+            
+            <TextInput
+              style={styles.input}
+              placeholder="Nombre"
+              placeholderTextColor="#aaa" 
+              value={nombre}
+              onChangeText={setNombre}
+              autoComplete="off"
+              autoCorrect={false}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Apellidos"
+              placeholderTextColor="#aaa" 
+              value={apellidos}
+              onChangeText={setApellidos}
+              autoComplete="off"
+              autoCorrect={false}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Correo electrónico"
+              placeholderTextColor="#aaa" 
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect={false}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Carrera"
+              placeholderTextColor="#aaa" 
+              value={carrera}
+              onChangeText={setCarrera}
+              autoComplete="off"
+              autoCorrect={false}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Semestre"
+              placeholderTextColor="#aaa"  
+              value={semestre}
+              onChangeText={setSemestre}
+              keyboardType="numeric"
+              autoComplete="off"
+              autoCorrect={false}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Contraseña"
+              placeholderTextColor="#aaa" 
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoComplete="password-new"
+              autoCorrect={false}
+            />
+            
+            <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
+              <Text style={styles.registerButtonText}>Registrarse</Text>
+            </TouchableOpacity>
+            
+            <Text style={styles.loginText} onPress={() => router.replace('/login')}>
+              ¿Ya tienes cuenta? Inicia sesión
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+    </ImageBackground>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#fff',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#198754',
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#198754',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    fontSize: 16,
-    color:"#000",
-    backgroundColor:"#fff",
-  },
-  loginText: {
-    marginTop: 16,
-    color: '#198754',
-    textAlign: 'center',
-    textDecorationLine: 'underline',
-  },
-});
