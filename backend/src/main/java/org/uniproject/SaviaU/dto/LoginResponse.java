@@ -16,7 +16,8 @@ public class LoginResponse {
     private String tokenType;
     private Long expiresIn;
     private UserInfo user;
-    
+    private String appToken;
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

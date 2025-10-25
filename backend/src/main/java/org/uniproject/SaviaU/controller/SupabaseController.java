@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.uniproject.SaviaU.dto.LoginRequest;
 import org.uniproject.SaviaU.dto.LoginResponse;
+import org.uniproject.SaviaU.dto.RegisterRequest;
 import org.uniproject.SaviaU.service.SupabaseService;
 import reactor.core.publisher.Mono;
 
@@ -52,6 +53,17 @@ public class SupabaseController {
         return supabaseService.login(loginRequest)
                 .map(ResponseEntity::ok)
                 .onErrorReturn(ResponseEntity.status(401).build());
+    }
+
+    /**
+     * Endpoint para registro
+     * POST /api/auth/register
+     */
+    @PostMapping("/auth/register")
+    public Mono<ResponseEntity<LoginResponse>> register(@RequestBody RegisterRequest request) {
+        return supabaseService.register(request)
+                .map(ResponseEntity::ok)
+                .onErrorReturn(ResponseEntity.status(400).build());
     }
 
     /**
