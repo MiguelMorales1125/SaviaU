@@ -13,6 +13,8 @@ export const API_CONFIG = {
   ENDPOINTS: {
     LOGIN: '/api/auth/login',
     REGISTER: '/api/auth/register',
+    PASSWORD_RESET: '/api/auth/password/reset',
+    PASSWORD_APPLY: '/api/auth/password/apply',
   }
 };
 

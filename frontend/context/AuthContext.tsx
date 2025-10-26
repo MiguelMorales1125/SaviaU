@@ -20,6 +20,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   updateUser: (updates: Partial<User>) => void;
+  sendPasswordReset: (email: string, redirectUri?: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   login: (email: string, password: string) => Promise<{ success: boolean; data?: any; error?: string }>;
   register: (fullName: string, email: string, password: string, carrera?: string, universidad?: string, semestre?: number) => Promise<{ success: boolean; data?: any; error?: string }>;
   logout: () => void;
@@ -30,6 +31,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   updateUser: (_updates: Partial<User>) => {},
+  sendPasswordReset: async (_email: string, _redirectUri?: string) => ({ success: false }),
   login: async (_email: string, _password: string) => ({ success: false }),
   register: async (_fullName: string, _email: string, _password: string) => ({ success: false }),
   logout: () => {},
@@ -71,6 +73,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!prev) return { ...(updates as User) };
       return { ...prev, ...updates };
     });
+  };
+
+  const sendPasswordReset = async (email: string, redirectUri?: string) => {
+    try {
+      const resp = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.PASSWORD_RESET), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, redirectUri }),
+      });
+
+      if (resp.ok) {
+        return { success: true, message: 'Correo de recuperación enviado si el email existe' };
+      }
+
+      const text = await resp.text();
+      return { success: false, error: text || 'Error en el servidor' };
+    } catch (err) {
+      console.error('Error sendPasswordReset:', err);
+      return { success: false, error: 'Error de conexión' };
+    }
   };
 
   const login = async (email: string, password: string) => {
@@ -177,6 +199,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       login, 
       register,
       updateUser,
+      sendPasswordReset,
       logout, 
       loading, 
       initialLoading 

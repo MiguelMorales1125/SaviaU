@@ -8,6 +8,9 @@ import {
   ImageBackground,
   ActivityIndicator,
   Animated,
+  Modal,
+  Pressable,
+  Alert,
 } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "../../context/AuthContext";
@@ -18,7 +21,11 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [forgotVisible, setForgotVisible] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [sendingReset, setSendingReset] = useState(false);
   const [showSuccessLoading, setShowSuccessLoading] = useState(false);
+  const { sendPasswordReset } = useAuth();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const logoScale = useRef(new Animated.Value(0.8)).current;
@@ -188,10 +195,106 @@ export default function Login() {
           </TouchableOpacity>
 
           <TouchableOpacity>
-            <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
+            <Text style={styles.forgotText} onPress={() => { setForgotEmail(email); setForgotVisible(true); }}>¿Olvidaste tu contraseña?</Text>
           </TouchableOpacity>
         </Animated.View>
       </View>
+
+      {/* Forgot password modal (manages its own sending state and inline feedback) */}
+      <ForgotModal
+        visible={forgotVisible}
+        onClose={() => setForgotVisible(false)}
+        email={forgotEmail}
+        sendFn={sendPasswordReset}
+      />
     </ImageBackground>
+  );
+}
+
+// Modal outside component to keep file tidy
+function ForgotModal({ visible, onClose, email, sendFn }: { visible: boolean; onClose: () => void; email?: string; sendFn: (email: string, redirectUri?: string) => Promise<{ success: boolean; message?: string; error?: string }> }) {
+  const [value, setValue] = useState(email || '');
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [errorMsg, setErrorMsg] = useState<string | undefined>(undefined);
+  const [lastSentAt, setLastSentAt] = useState<number | null>(null);
+
+  React.useEffect(() => setValue(email || ''), [email]);
+
+  const handleSend = async () => {
+    if (!value || !value.includes('@')) {
+      setErrorMsg('Ingresa un correo válido');
+      setStatus('error');
+      return;
+    }
+    setErrorMsg(undefined);
+    setStatus('sending');
+    try {
+      const redirectUri = (typeof window !== 'undefined' && window.location && window.location.origin)
+        ? window.location.origin + '/reset'
+        : undefined;
+      const res = await sendFn(value, redirectUri);
+      if (res.success) {
+        setStatus('sent');
+        setLastSentAt(Date.now());
+      } else {
+        setStatus('error');
+        setErrorMsg(res.error || 'Error desconocido');
+      }
+    } catch (err) {
+      setStatus('error');
+      setErrorMsg('Error de conexión');
+    }
+  };
+
+  const timeSince = (ts: number | null) => {
+    if (!ts) return '';
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    return `${m}m`;
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 }} onPress={onClose}>
+        <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: '#0b0b0b', padding: 18, borderRadius: 12 }}>
+          <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Recuperar contraseña</Text>
+          <Text style={{ color: '#ddd', marginBottom: 8 }}>Ingresa el correo asociado a tu cuenta y recibirás instrucciones.</Text>
+
+          <TextInput value={value} onChangeText={(t) => { setValue(t); if (status !== 'idle') { setStatus('idle'); setErrorMsg(undefined); } }} placeholder="Correo electrónico" placeholderTextColor="#999" style={{ backgroundColor: '#0b0b0b', borderColor: '#2b2b2b', borderWidth: 1, padding: 10, borderRadius: 8, color: '#fff', marginBottom: 12 }} keyboardType="email-address" autoCapitalize="none" />
+
+          {/* Inline feedback area */}
+          {status === 'sent' ? (
+            <View style={{ backgroundColor: '#0b2f1a', borderRadius: 8, padding: 10, marginBottom: 12 }}>
+              <Text style={{ color: '#bff0d6', fontWeight: '700' }}>Instrucciones enviadas</Text>
+              <Text style={{ color: '#cfefdc', fontSize: 12 }}>Enviado hace {timeSince(lastSentAt)} — revisa tu bandeja y spam.</Text>
+            </View>
+          ) : null}
+
+          {status === 'error' && errorMsg ? (
+            <View style={{ backgroundColor: '#3b1a1a', borderRadius: 8, padding: 10, marginBottom: 12 }}>
+              <Text style={{ color: '#ffd6d6', fontWeight: '700' }}>Error</Text>
+              <Text style={{ color: '#ffcfcf', fontSize: 12 }}>{errorMsg}</Text>
+            </View>
+          ) : null}
+
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
+            <TouchableOpacity onPress={onClose} style={{ paddingHorizontal: 12, paddingVertical: 10 }}>
+              <Text style={{ color: '#bbb' }}>{status === 'sent' ? 'Cerrar' : 'Cancelar'}</Text>
+            </TouchableOpacity>
+
+            {status === 'sent' ? (
+              <TouchableOpacity onPress={handleSend} style={{ backgroundColor: '#198754', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}>
+                <Text style={{ color: '#fff', fontWeight: '700' }}>Reenviar</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={handleSend} disabled={status === 'sending'} style={{ backgroundColor: '#198754', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}>
+                {status === 'sending' ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Enviar</Text>}
+              </TouchableOpacity>
+            )}
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
