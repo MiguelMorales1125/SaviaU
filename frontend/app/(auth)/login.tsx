@@ -13,6 +13,8 @@ import {
   Alert,
 } from "react-native";
 import { router } from "expo-router";
+import { Platform, Linking } from 'react-native';
+import { getApiUrl, API_CONFIG } from '../../config/api';
 import { useAuth } from "../../context/AuthContext";
 import { loginStyles as styles } from "./login.styles";
 
@@ -194,6 +196,30 @@ export default function Login() {
             <Text style={styles.buttonText}>Registrarse</Text>
           </TouchableOpacity>
 
+          {/* Google Sign-in button */}
+          <TouchableOpacity onPress={async () => {
+            try {
+              const redirectTo = (typeof window !== 'undefined' && window.location) ? window.location.origin + '/oauth' : undefined;
+              const params = new URLSearchParams();
+              if (redirectTo) params.set('redirectTo', redirectTo);
+              const resp = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.GOOGLE_URL) + (params.toString() ? ('?' + params.toString()) : ''));
+              if (!resp.ok) throw new Error('No se pudo obtener URL de Google');
+              const data = await resp.json();
+              const url = data?.url;
+              if (!url) throw new Error('URL no encontrada');
+              if (Platform.OS === 'web') {
+                window.location.href = url;
+              } else {
+                await Linking.openURL(url);
+              }
+            } catch (err) {
+              console.error('Error iniciar Google auth:', err);
+            }
+          }} style={[styles.button, { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ccc', marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}>
+            <Image source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }} style={{ width: 20, height: 20, marginRight: 10 }} />
+            <Text style={{ color: '#444', fontWeight: '700' }}>Ingresar con Google</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity>
             <Text style={styles.forgotText} onPress={() => { setForgotEmail(email); setForgotVisible(true); }}>¿Olvidaste tu contraseña?</Text>
           </TouchableOpacity>
@@ -256,12 +282,12 @@ function ForgotModal({ visible, onClose, email, sendFn }: { visible: boolean; on
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 }} onPress={onClose}>
-        <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: '#0b0b0b', padding: 18, borderRadius: 12 }}>
+      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center', padding: 24 }} onPress={onClose}>
+        <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: '#0b0b0b', padding: 18, borderRadius: 12, width: '90%', maxWidth: 720, alignSelf: 'center' }}>
           <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Recuperar contraseña</Text>
           <Text style={{ color: '#ddd', marginBottom: 8 }}>Ingresa el correo asociado a tu cuenta y recibirás instrucciones.</Text>
 
-          <TextInput value={value} onChangeText={(t) => { setValue(t); if (status !== 'idle') { setStatus('idle'); setErrorMsg(undefined); } }} placeholder="Correo electrónico" placeholderTextColor="#999" style={{ backgroundColor: '#0b0b0b', borderColor: '#2b2b2b', borderWidth: 1, padding: 10, borderRadius: 8, color: '#fff', marginBottom: 12 }} keyboardType="email-address" autoCapitalize="none" />
+          <TextInput value={value} onChangeText={(t) => { setValue(t); if (status !== 'idle') { setStatus('idle'); setErrorMsg(undefined); } }} placeholder="Correo electrónico" placeholderTextColor="#999" style={{ backgroundColor: '#0b0b0b', borderColor: '#2b2b2b', borderWidth: 1, padding: 12, borderRadius: 8, color: '#fff', marginBottom: 12, width: '100%' }} keyboardType="email-address" autoCapitalize="none" />
 
           {/* Inline feedback area */}
           {status === 'sent' ? (
@@ -278,17 +304,17 @@ function ForgotModal({ visible, onClose, email, sendFn }: { visible: boolean; on
             </View>
           ) : null}
 
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }}>
             <TouchableOpacity onPress={onClose} style={{ paddingHorizontal: 12, paddingVertical: 10 }}>
               <Text style={{ color: '#bbb' }}>{status === 'sent' ? 'Cerrar' : 'Cancelar'}</Text>
             </TouchableOpacity>
 
             {status === 'sent' ? (
-              <TouchableOpacity onPress={handleSend} style={{ backgroundColor: '#198754', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}>
+              <TouchableOpacity onPress={handleSend} style={{ backgroundColor: '#198754', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, marginLeft: 8 }}>
                 <Text style={{ color: '#fff', fontWeight: '700' }}>Reenviar</Text>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity onPress={handleSend} disabled={status === 'sending'} style={{ backgroundColor: '#198754', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}>
+              <TouchableOpacity onPress={handleSend} disabled={status === 'sending'} style={{ backgroundColor: '#198754', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, marginLeft: 8 }}>
                 {status === 'sending' ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Enviar</Text>}
               </TouchableOpacity>
             )}

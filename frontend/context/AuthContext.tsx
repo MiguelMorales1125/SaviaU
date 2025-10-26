@@ -23,6 +23,7 @@ interface AuthContextType {
   sendPasswordReset: (email: string, redirectUri?: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   login: (email: string, password: string) => Promise<{ success: boolean; data?: any; error?: string }>;
   register: (fullName: string, email: string, password: string, carrera?: string, universidad?: string, semestre?: number) => Promise<{ success: boolean; data?: any; error?: string }>;
+  finishGoogle: (accessToken: string, refreshToken?: string) => Promise<{ success: boolean; data?: any; error?: string }>;
   logout: () => void;
   loading: boolean;
   initialLoading: boolean; 
@@ -34,6 +35,7 @@ const AuthContext = createContext<AuthContextType>({
   sendPasswordReset: async (_email: string, _redirectUri?: string) => ({ success: false }),
   login: async (_email: string, _password: string) => ({ success: false }),
   register: async (_fullName: string, _email: string, _password: string) => ({ success: false }),
+  finishGoogle: async (_accessToken: string, _refreshToken?: string) => ({ success: false }),
   logout: () => {},
   loading: false,
   initialLoading: true,
@@ -136,6 +138,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const finishGoogle = async (accessToken: string, refreshToken?: string) => {
+    setLoading(true);
+    try {
+      const resp = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.GOOGLE_FINISH), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken, refreshToken }),
+      });
+
+      if (resp.ok) {
+        const data = await resp.json();
+        // backend returns LoginResponse-like object
+        if (data?.user) {
+          setUser(data.user);
+        }
+        return { success: true, data };
+      }
+
+      const text = await resp.text();
+      return { success: false, error: text || 'Error en el servidor' };
+    } catch (err) {
+      console.error('Error finishGoogle:', err);
+      return { success: false, error: 'Error de conexión' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const register = async (fullName: string, email: string, password: string, carrera?: string, universidad?: string, semestre?: number) => {
     setLoading(true);
     try {
@@ -200,6 +230,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       register,
       updateUser,
       sendPasswordReset,
+      finishGoogle,
       logout, 
       loading, 
       initialLoading 

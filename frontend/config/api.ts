@@ -15,6 +15,8 @@ export const API_CONFIG = {
     REGISTER: '/api/auth/register',
     PASSWORD_RESET: '/api/auth/password/reset',
     PASSWORD_APPLY: '/api/auth/password/apply',
+      GOOGLE_URL: '/api/auth/google/url',
+      GOOGLE_FINISH: '/api/auth/google/finish',
   }
 };
 

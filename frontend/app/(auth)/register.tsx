@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, Alert, ScrollView, TouchableOpacity, Image, ImageBackground, Animated, ActivityIndicator, Pressable, SafeAreaView, KeyboardAvoidingView, Platform, Modal, Dimensions, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Linking } from 'react-native';
+import { getApiUrl, API_CONFIG } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
 import { registerStyles as styles } from './register.styles';
 
@@ -360,6 +362,30 @@ export default function Register() {
             
             <TouchableOpacity activeOpacity={0.85} style={[styles.registerButton, { opacity: (!isFormValid() || loading) ? 0.85 : 1 }]} onPress={handleRegister} disabled={!isFormValid() || loading}>
               {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.registerButtonText}>Registrarse</Text>}
+            </TouchableOpacity>
+
+            {/* Google Sign-up / sign-in */}
+            <TouchableOpacity onPress={async () => {
+              try {
+                const redirectTo = (typeof window !== 'undefined' && window.location) ? window.location.origin + '/oauth' : undefined;
+                const params = new URLSearchParams();
+                if (redirectTo) params.set('redirectTo', redirectTo);
+                const resp = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.GOOGLE_URL) + (params.toString() ? ('?' + params.toString()) : ''));
+                if (!resp.ok) throw new Error('No se pudo obtener URL de Google');
+                const data = await resp.json();
+                const url = data?.url;
+                if (!url) throw new Error('URL no encontrada');
+                if (Platform.OS === 'web') {
+                  window.location.href = url;
+                } else {
+                  await Linking.openURL(url);
+                }
+              } catch (err) {
+                console.error('Error iniciar Google auth:', err);
+              }
+            }} style={[styles.registerButton, { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ccc', marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}> 
+              <Image source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }} style={{ width: 20, height: 20, marginRight: 10 }} />
+              <Text style={{ color: '#444', fontWeight: '700' }}>Registrarse con Google</Text>
             </TouchableOpacity>
             
             <Text style={styles.loginText} onPress={() => router.replace('/login')}>
