@@ -11,6 +11,11 @@ export default function ResetPassword() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Request form state
+  const [requestEmail, setRequestEmail] = useState('');
+  const [requestStatus, setRequestStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [requestMsg, setRequestMsg] = useState<string | null>(null);
+
   useEffect(() => {
     // Try to parse token from hash fragment or query
     try {
@@ -25,7 +30,7 @@ export default function ResetPassword() {
     }
   }, []);
 
-  const handleSubmit = async () => {
+  const handleApply = async () => {
     setError(null);
     setMessage(null);
     if (!password || password.length < 6) {
@@ -56,19 +61,62 @@ export default function ResetPassword() {
     }
   };
 
+  const handleRequest = async (e?: any) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setRequestStatus('sending');
+    setRequestMsg('Enviando...');
+    try {
+      const redirectUri = (typeof window !== 'undefined' && window.location) ? window.location.origin + '/(auth)/reset' : undefined;
+      const resp = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.PASSWORD_RESET), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: requestEmail, redirectUri }),
+      });
+      const text = await resp.text();
+      if (resp.ok) {
+        setRequestStatus('sent');
+        setRequestMsg('Si el correo existe, se envió un email con instrucciones.');
+      } else {
+        setRequestStatus('error');
+        setRequestMsg(text || `HTTP ${resp.status}`);
+      }
+    } catch (err: any) {
+      setRequestStatus('error');
+      setRequestMsg(err?.message || String(err));
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.wrapper}>
         <Text style={styles.title}>Recuperar contraseña</Text>
 
-        {!accessToken ? (
+        {/* Request card (always shown when there's no token) */}
+        {!accessToken && (
           <View style={styles.card}>
-            <Text style={{ marginBottom: 8 }}>No se encontró un token de recuperación en la URL.</Text>
-            <TouchableOpacity onPress={() => router.replace('/(auth)/login')} style={{ marginTop: 8 }}>
-              <Text style={{ color: '#198754' }}>Volver al login</Text>
-            </TouchableOpacity>
+            <Text style={{ marginBottom: 8 }}>Solicita un correo para recuperar tu contraseña.</Text>
+            <TextInput
+              placeholder="Correo electrónico"
+              value={requestEmail}
+              onChangeText={setRequestEmail}
+              style={styles.input}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            {requestMsg ? <Text style={{ marginTop: 8 }}>{requestMsg}</Text> : null}
+            <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
+              <TouchableOpacity onPress={handleRequest} disabled={requestStatus === 'sending'} style={styles.primaryButton}>
+                {requestStatus === 'sending' ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Enviar correo</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.replace('/(auth)/login')} style={styles.linkButton}>
+                <Text style={styles.linkText}>Volver al login</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        ) : (
+        )}
+
+        {/* Apply card (shown when token present) */}
+        {accessToken && (
           <View style={styles.card}>
             <Text style={styles.subtitle}>Establecer nueva contraseña</Text>
             <TextInput
@@ -83,7 +131,7 @@ export default function ResetPassword() {
             {message ? <Text style={styles.successText}>{message}</Text> : null}
 
             <View style={styles.actionsRow}>
-              <TouchableOpacity onPress={handleSubmit} disabled={loading} style={styles.primaryButton}>
+              <TouchableOpacity onPress={handleApply} disabled={loading} style={styles.primaryButton}>
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Actualizar contraseña</Text>}
               </TouchableOpacity>
 

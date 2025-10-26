@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, Alert, ScrollView, TouchableOpacity, Image, ImageBackground, Animated, ActivityIndicator, Pressable, SafeAreaView, KeyboardAvoidingView, Platform, Modal, Dimensions, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Linking } from 'react-native';
+import * as LinkingExpo from 'expo-linking';
 import { getApiUrl, API_CONFIG } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
 import { registerStyles as styles } from './register.styles';
@@ -63,8 +64,30 @@ export default function Register() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const slideAnim = useRef(new Animated.Value(300)).current; // for modal slide-up
+  useEffect(() => {
+    if (open) {
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 280,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      // reset position for next open
+      slideAnim.setValue(300);
+    }
+  }, [open]);
 
-    if (PickerComp) {
+  const closeModal = () => {
+    Animated.timing(slideAnim, {
+      toValue: 300,
+      duration: 220,
+      useNativeDriver: true,
+    }).start(() => setOpen(false));
+  };
+
+  const openModal = () => setOpen(true);
+
+  if (PickerComp) {
       return (
         <View style={{ width: '100%', borderWidth: 1, borderColor: '#198754', borderRadius: 8, marginBottom: 12, overflow: 'hidden', backgroundColor: '#f8fffe' }}>
           <PickerComp selectedValue={selected} onValueChange={(v: any) => onSelect(String(v))} style={{ height: 48 }}>
@@ -76,31 +99,6 @@ export default function Register() {
         </View>
       );
     }
-    // Fallback: render options inside a Modal so they float above the ScrollView and avoid layout/scroll conflicts
-    // We'll animate the modal content with slide-up and include a header with a close button.
-    useEffect(() => {
-      if (open) {
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 280,
-          useNativeDriver: true,
-        }).start();
-      } else {
-        // reset position for next open
-        slideAnim.setValue(300);
-      }
-    }, [open]);
-
-    const closeModal = () => {
-      Animated.timing(slideAnim, {
-        toValue: 300,
-        duration: 220,
-        useNativeDriver: true,
-      }).start(() => setOpen(false));
-    };
-
-    const openModal = () => setOpen(true);
-
     return (
       <>
         <Pressable onPress={openModal} style={[styles.input, { justifyContent: 'center' }]}> 
@@ -367,13 +365,25 @@ export default function Register() {
             {/* Google Sign-up / sign-in */}
             <TouchableOpacity onPress={async () => {
               try {
-                const redirectTo = (typeof window !== 'undefined' && window.location) ? window.location.origin + '/oauth' : undefined;
+                let redirectTo: string | undefined = undefined;
+                try {
+                  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
+                      // Public path for the oauth handler is '/oauth' (group folders like `(auth)` are not part of the public URL)
+                      redirectTo = window.location.origin + '/oauth';
+                    } else {
+                      redirectTo = LinkingExpo.createURL('/oauth');
+                  }
+                } catch (e) {
+                  redirectTo = undefined;
+                }
                 const params = new URLSearchParams();
                 if (redirectTo) params.set('redirectTo', redirectTo);
                 const resp = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.GOOGLE_URL) + (params.toString() ? ('?' + params.toString()) : ''));
                 if (!resp.ok) throw new Error('No se pudo obtener URL de Google');
                 const data = await resp.json();
                 const url = data?.url;
+                console.debug('Google OAuth redirectTo:', redirectTo);
+                console.debug('Google OAuth backend url:', url);
                 if (!url) throw new Error('URL no encontrada');
                 if (Platform.OS === 'web') {
                   window.location.href = url;

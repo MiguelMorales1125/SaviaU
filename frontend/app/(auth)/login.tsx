@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { Platform, Linking } from 'react-native';
+import * as LinkingExpo from 'expo-linking';
 import { getApiUrl, API_CONFIG } from '../../config/api';
 import { useAuth } from "../../context/AuthContext";
 import { loginStyles as styles } from "./login.styles";
@@ -199,13 +200,27 @@ export default function Login() {
           {/* Google Sign-in button */}
           <TouchableOpacity onPress={async () => {
             try {
-              const redirectTo = (typeof window !== 'undefined' && window.location) ? window.location.origin + '/oauth' : undefined;
+              // Use grouped Expo Router OAuth route so returned hash lands on our handler
+              let redirectTo: string | undefined = undefined;
+              try {
+                if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
+                  // Public path for the oauth handler is '/oauth' (group folders like `(auth)` are not part of the public URL)
+                  redirectTo = window.location.origin + '/oauth';
+                } else {
+                  // Use expo-linking to build an app URL that the native app can handle
+                  redirectTo = LinkingExpo.createURL('/oauth');
+                }
+              } catch (e) {
+                redirectTo = undefined;
+              }
               const params = new URLSearchParams();
               if (redirectTo) params.set('redirectTo', redirectTo);
               const resp = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.GOOGLE_URL) + (params.toString() ? ('?' + params.toString()) : ''));
               if (!resp.ok) throw new Error('No se pudo obtener URL de Google');
               const data = await resp.json();
               const url = data?.url;
+              console.debug('Google OAuth redirectTo:', redirectTo);
+              console.debug('Google OAuth backend url:', url);
               if (!url) throw new Error('URL no encontrada');
               if (Platform.OS === 'web') {
                 window.location.href = url;
@@ -256,7 +271,7 @@ function ForgotModal({ visible, onClose, email, sendFn }: { visible: boolean; on
     setStatus('sending');
     try {
       const redirectUri = (typeof window !== 'undefined' && window.location && window.location.origin)
-        ? window.location.origin + '/reset'
+        ? window.location.origin + '/(auth)/reset'
         : undefined;
       const res = await sendFn(value, redirectUri);
       if (res.success) {

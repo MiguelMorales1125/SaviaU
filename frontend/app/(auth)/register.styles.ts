@@ -36,7 +36,6 @@ export const registerStyles = StyleSheet.create({
   logo: {
     width: 225,
     height:225,
-    marginBottom: 8,
     alignSelf: "center",
     marginBottom: -70,
 

@@ -4,11 +4,14 @@ import { Platform } from 'react-native';
 export const API_CONFIG = {
   // En desarrollo, en emulador Android 'localhost' no apunta al host Windows.
   // Usamos 10.0.2.2 para Android emulator, localhost para iOS/simulador, y la URL remota en producción.
+  // Base URL for the backend API. In development use localhost (or emulator special address).
+  // In production prefer an explicit env var EXPO_PUBLIC_API_BASE_URL so deployments can point to
+  // the correct backend (avoid hardcoding). If not provided, fall back to the previous value.
   BASE_URL: __DEV__
     ? Platform.OS === 'android'
       ? 'http://10.0.2.2:8080'
       : 'http://localhost:8080'
-    : 'https://saviau.onrender.com',
+    : (process.env.EXPO_PUBLIC_API_BASE_URL || 'https://saviau.onrender.com'),
 
   ENDPOINTS: {
     LOGIN: '/api/auth/login',
