@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, Alert, ScrollView, TouchableOpacity, Image, ImageBackground, Animated, ActivityIndicator, FlatList, Pressable } from 'react-native';
+import { View, Text, TextInput, Alert, ScrollView, TouchableOpacity, Image, ImageBackground, Animated, ActivityIndicator, Pressable, SafeAreaView, KeyboardAvoidingView, Platform, Modal, Dimensions, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { registerStyles as styles } from './register.styles';
@@ -58,7 +58,9 @@ export default function Register() {
       PickerComp = null;
     }
 
-    const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const slideAnim = useRef(new Animated.Value(300)).current; // for modal slide-up
 
     if (PickerComp) {
       return (
@@ -72,26 +74,106 @@ export default function Register() {
         </View>
       );
     }
+    // Fallback: render options inside a Modal so they float above the ScrollView and avoid layout/scroll conflicts
+    // We'll animate the modal content with slide-up and include a header with a close button.
+    useEffect(() => {
+      if (open) {
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 280,
+          useNativeDriver: true,
+        }).start();
+      } else {
+        // reset position for next open
+        slideAnim.setValue(300);
+      }
+    }, [open]);
 
-    // Fallback inline dropdown that appears right below the input
+    const closeModal = () => {
+      Animated.timing(slideAnim, {
+        toValue: 300,
+        duration: 220,
+        useNativeDriver: true,
+      }).start(() => setOpen(false));
+    };
+
+    const openModal = () => setOpen(true);
+
     return (
       <>
-        <Pressable onPress={() => setOpen(!open)} style={[styles.input, { justifyContent: 'center' }]}> 
+        <Pressable onPress={openModal} style={[styles.input, { justifyContent: 'center' }]}> 
           <Text style={{ color: selected ? '#000' : '#999' }}>{selected || placeholder || 'Seleccione...'}</Text>
         </Pressable>
-        {open ? (
-          <View style={{ width: '100%', backgroundColor: '#fff', borderWidth: 1, borderColor: '#e6e6e6', borderRadius: 8, maxHeight: 200, marginBottom: 12 }}>
-            <FlatList
-              data={options}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <Pressable onPress={() => { onSelect(item); setOpen(false); }} style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: '#f2f2f2' }}>
-                  <Text>{item}</Text>
-                </Pressable>
-              )}
-            />
-          </View>
-        ) : null}
+        <Modal visible={open} transparent animationType="none" onRequestClose={closeModal}>
+          <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: 24 }} onPress={closeModal}>
+            
+            <Pressable onPress={(e) => e.stopPropagation()} style={{ alignSelf: 'center' }}>
+              {(() => {
+                const screenWidth = Dimensions.get('window').width;
+                const screenHeight = Dimensions.get('window').height;
+                
+                const modalWidth = screenWidth >= 1024 ? 880 : screenWidth >= 700 ? 640 : Math.max(screenWidth - 32, 280);
+
+                const modalHeight = Math.min(screenHeight * 0.75, 720);
+
+                const listReserved = 110;
+                const listHeight = Math.max(120, modalHeight - listReserved);
+                return (
+                  <Animated.View style={{ backgroundColor: '#fff', borderRadius: 12, height: modalHeight, overflow: 'hidden', width: modalWidth, transform: [{ translateY: slideAnim }] }}>
+                    {/* Header */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#eee' }}>
+                      <Text style={{ fontSize: 16, fontWeight: '600' }}>{placeholder || 'Seleccione'}</Text>
+                      <TouchableOpacity onPress={closeModal} style={{ padding: 6 }} accessibilityLabel="Cerrar modal">
+                        <Text style={{ fontSize: 20, color: '#198754' }}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Search input */}
+                    <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f1f1' }}>
+                      <TextInput
+                        value={search}
+                        onChangeText={setSearch}
+                        placeholder="Buscar..."
+                        placeholderTextColor="#999"
+                        style={{ backgroundColor: '#f7f7f7', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, fontSize: 15 }}
+                        returnKeyType="search"
+                      />
+                    </View>
+
+                    {/* Scrollable list inside the modal using FlatList for better performance on long lists */}
+                    {(() => {
+                      const filtered = options.filter(o => o.toLowerCase().includes(search.trim().toLowerCase()));
+                      return (
+                        <FlatList
+                          data={filtered}
+                          keyExtractor={(item) => item}
+                          style={{ height: listHeight }}
+                          contentContainerStyle={{ paddingBottom: 8 }}
+                          keyboardShouldPersistTaps="handled"
+                          nestedScrollEnabled
+                          ListEmptyComponent={() => (
+                            <View style={{ padding: 20, alignItems: 'center', justifyContent: 'center' }}>
+                              <Text style={{ color: '#666', fontSize: 16 }}>No existe</Text>
+                            </View>
+                          )}
+                          renderItem={({ item }) => {
+                            const isSelected = item === selected;
+                            return (
+                              <Pressable onPress={() => { onSelect(item); closeModal(); }} style={{ paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#eee', backgroundColor: isSelected ? '#e8f7ef' : '#fff', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Text style={{ fontSize: 16, color: isSelected ? '#0b6b3b' : '#111' }}>{item}</Text>
+                                {isSelected ? <Text style={{ color: '#0b6b3b', fontSize: 16 }}>✓</Text> : null}
+                              </Pressable>
+                            );
+                          }}
+                        />
+                      );
+                    })()}
+                  </Animated.View>
+                );
+              })()}
+            </Pressable>
+          </Pressable>
+        </Modal>
       </>
     );
   };
@@ -179,12 +261,14 @@ export default function Register() {
       resizeMode="cover"
       blurRadius={2}
     >
-      <ScrollView 
-        contentContainerStyle={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.centeredContainer}>
+      
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}>
+          <ScrollView 
+            contentContainerStyle={styles.scrollContainer}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.centeredContainer}>
           <Animated.View 
             style={[
               styles.formContainer,
@@ -202,7 +286,7 @@ export default function Register() {
             >
               <Image
                 source={require("../../assets/images/Logo-SaviaU.png")}
-                style={styles.logo}
+                    style={styles.logo}
                 resizeMode="contain"
               />
             </Animated.View>
@@ -274,7 +358,7 @@ export default function Register() {
               <Text style={{ color: '#666', fontSize: 12, marginBottom: 8 }}>La contraseña debe contener al menos un número.</Text>
             ) : null}
             
-            <TouchableOpacity style={[styles.registerButton, { opacity: (!isFormValid() || loading) ? 0.6 : 1 }]} onPress={handleRegister} disabled={!isFormValid() || loading}>
+            <TouchableOpacity activeOpacity={0.85} style={[styles.registerButton, { opacity: (!isFormValid() || loading) ? 0.85 : 1 }]} onPress={handleRegister} disabled={!isFormValid() || loading}>
               {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.registerButtonText}>Registrarse</Text>}
             </TouchableOpacity>
             
@@ -283,7 +367,9 @@ export default function Register() {
             </Text>
           </Animated.View>
         </View>
-      </ScrollView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      
     </ImageBackground>
   );
 }
