@@ -7,10 +7,19 @@ interface User {
   role: string;
   createdAt: string;
   lastSignInAt: string;
+  // Optional profile fields (frontend-only for now)
+  fullName?: string;
+  profileUrl?: string;
+  description?: string;
+  carrera?: string;
+  universidad?: string;
+  semestre?: number;
+  onboarded?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
+  updateUser: (updates: Partial<User>) => void;
   login: (email: string, password: string) => Promise<{ success: boolean; data?: any; error?: string }>;
   register: (fullName: string, email: string, password: string, carrera?: string, universidad?: string, semestre?: number) => Promise<{ success: boolean; data?: any; error?: string }>;
   logout: () => void;
@@ -20,6 +29,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  updateUser: (_updates: Partial<User>) => {},
   login: async (_email: string, _password: string) => ({ success: false }),
   register: async (_fullName: string, _email: string, _password: string) => ({ success: false }),
   logout: () => {},
@@ -36,7 +46,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
 
- 
+
   useEffect(() => {
     checkInitialAuthState();
   }, []);
@@ -54,6 +64,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('Error en verificación inicial:', error);
       setInitialLoading(false);
     }
+  };
+
+  const updateUser = (updates: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return { ...(updates as User) };
+      return { ...prev, ...updates };
+    });
   };
 
   const login = async (email: string, password: string) => {
@@ -116,7 +133,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (response.ok) {
         const data = await response.json();
         console.log('Register exitoso:', data);
-        setUser(data.user || null);
+        // If backend returns a user object use it, otherwise create a local user object
+        // including the values the user just entered so the profile screen shows them.
+        const now = new Date().toISOString();
+        const newUser = data?.user
+          ? data.user
+          : {
+              id: data?.user?.id || 'local-' + Math.random().toString(36).slice(2, 9),
+              email,
+              role: data?.user?.role || 'user',
+              createdAt: data?.user?.createdAt || now,
+              lastSignInAt: data?.user?.lastSignInAt || now,
+              fullName,
+              carrera: carrera || '',
+              universidad: universidad || '',
+              semestre: semestre || 0,
+            };
+
+        setUser(newUser);
         return { success: true, data };
       } else {
         const text = await response.text();
@@ -142,6 +176,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       user, 
       login, 
       register,
+      updateUser,
       logout, 
       loading, 
       initialLoading 
