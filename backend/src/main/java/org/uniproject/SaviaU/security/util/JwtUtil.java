@@ -1,4 +1,4 @@
-package org.uniproject.SaviaU.util;
+package org.uniproject.SaviaU.security.util;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;

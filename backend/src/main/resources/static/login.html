@@ -14,13 +14,14 @@
     label { font-weight: 600; }
     input, button { font: inherit; padding: 8px 10px; }
     button { cursor: pointer; }
-    .actions { display: flex; gap: 12px; align-items: center; }
+    .actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
     .card { border: 1px solid #8884; border-radius: 8px; padding: 12px; margin-top: 16px; }
     .ok { color: #0a0; }
     .err { color: #c00; white-space: pre-wrap; }
     .muted { opacity: 0.8; font-size: 14px; }
     a { color: inherit; }
     code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .btn-google { background: #fff; color: #444; border: 1px solid #ccc; border-radius: 4px; }
   </style>
 </head>
 <body>
@@ -41,8 +42,16 @@
           <button type="submit">Iniciar sesión</button>
           <button type="button" id="btnClear" title="Limpiar">Limpiar</button>
           <a href="/register.html" title="Ir a registro">Ir a registro</a>
+          <a href="/reset.html" title="¿Olvidaste tu contraseña?">¿Olvidaste tu contraseña?</a>
         </div>
       </form>
+    </div>
+
+    <div class="card">
+      <div class="actions">
+        <button id="btnLoginGoogle" class="btn-google" type="button">Ingresar con Google</button>
+      </div>
+      <p class="muted">Se abrirá la ventana de Google y luego volverás a <code>/oauth.html</code>.</p>
     </div>
 
     <div id="result" class="card" style="display:none;"></div>
@@ -62,6 +71,7 @@
     const result = document.getElementById('result');
     const btnClear = document.getElementById('btnClear');
     const btnHealth = document.getElementById('btnHealth');
+    const btnLoginGoogle = document.getElementById('btnLoginGoogle');
     const healthStatus = document.getElementById('healthStatus');
 
     function showResult(ok, data) {
@@ -130,7 +140,18 @@
         healthStatus.textContent = 'ERROR: ' + (err?.message || String(err));
       }
     });
+
+    btnLoginGoogle.addEventListener('click', async () => {
+      try {
+        const params = new URLSearchParams({ redirectTo: window.location.origin + '/oauth.html' });
+        const resp = await fetch('/api/auth/google/url?' + params.toString());
+        if (!resp.ok) throw new Error('No se pudo obtener la URL de Google');
+        const { url } = await resp.json();
+        window.location.href = url; // redirige a Supabase Auth (Google)
+      } catch (err) {
+        showResult(false, err?.message || String(err));
+      }
+    });
   </script>
 </body>
 </html>
-

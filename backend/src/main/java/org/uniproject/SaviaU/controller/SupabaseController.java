@@ -7,6 +7,10 @@ import org.springframework.web.bind.annotation.*;
 import org.uniproject.SaviaU.dto.LoginRequest;
 import org.uniproject.SaviaU.dto.LoginResponse;
 import org.uniproject.SaviaU.dto.RegisterRequest;
+import org.uniproject.SaviaU.dto.GoogleFinishRequest;
+import org.uniproject.SaviaU.dto.PasswordResetRequest;
+import org.uniproject.SaviaU.dto.PasswordApplyRequest;
+import org.uniproject.SaviaU.dto.OnboardRequest;
 import org.uniproject.SaviaU.service.SupabaseService;
 import reactor.core.publisher.Mono;
 
@@ -66,95 +70,53 @@ public class SupabaseController {
                 .onErrorReturn(ResponseEntity.status(400).build());
     }
 
+
     /**
-     * Endpoint genérico para consultar cualquier tabla
-     * GET /api/table/{tableName}?columns=*&filter=id.eq.1
+     * Obtener URL de autorización de Google (Supabase Auth)
      */
-    @GetMapping("/table/{tableName}")
-    public Mono<ResponseEntity<String>> selectFromTable(
-            @PathVariable String tableName,
-            @RequestParam(required = false, defaultValue = "*") String columns,
-            @RequestParam(required = false) String filter) {
-        
-        return supabaseService.select(tableName, columns, filter)
-                .map(ResponseEntity::ok)
-                .onErrorReturn(ResponseEntity.status(500).body("Error al consultar la tabla"));
+    @GetMapping("/auth/google/url")
+    public ResponseEntity<Map<String, String>> getGoogleAuthUrl(@RequestParam(required = false) String redirectTo) {
+        String url = supabaseService.buildGoogleAuthUrl(redirectTo);
+        return ResponseEntity.ok(Map.of("url", url));
     }
 
     /**
-     * Endpoint para insertar datos en una tabla
-     * POST /api/table/{tableName}
+     * Finalizar login con Google: recibe accessToken/refreshToken del fragmento
      */
-    @PostMapping("/table/{tableName}")
-    public Mono<ResponseEntity<String>> insertIntoTable(
-            @PathVariable String tableName,
-            @RequestBody Map<String, Object> data) {
-        
-        return supabaseService.insert(tableName, data)
+    @PostMapping("/auth/google/finish")
+    public Mono<ResponseEntity<LoginResponse>> finishGoogle(@RequestBody GoogleFinishRequest request) {
+        return supabaseService.finishGoogleLogin(request)
                 .map(ResponseEntity::ok)
-                .onErrorReturn(ResponseEntity.status(500).body("Error al insertar en la tabla"));
+                .onErrorReturn(ResponseEntity.status(400).build());
     }
 
     /**
-     * Endpoint para actualizar datos en una tabla
-     * PATCH /api/table/{tableName}?filter=id.eq.1
+     * Enviar email de recuperación de contraseña
      */
-    @PatchMapping("/table/{tableName}")
-    public Mono<ResponseEntity<String>> updateTable(
-            @PathVariable String tableName,
-            @RequestParam String filter,
-            @RequestBody Map<String, Object> data) {
-        
-        return supabaseService.update(tableName, data, filter)
-                .map(ResponseEntity::ok)
-                .onErrorReturn(ResponseEntity.status(500).body("Error al actualizar la tabla"));
+    @PostMapping("/auth/password/reset")
+    public Mono<ResponseEntity<Map<String, String>>> sendPasswordReset(@RequestBody PasswordResetRequest request) {
+        return supabaseService.sendPasswordReset(request)
+                .map(msg -> ResponseEntity.ok(Map.of("message", msg)))
+                .onErrorReturn(ResponseEntity.status(400).body(Map.of("message", "No se pudo enviar el correo")));
     }
 
     /**
-     * Endpoint para eliminar datos de una tabla
-     * DELETE /api/table/{tableName}?filter=id.eq.1
+     * Aplicar nueva contraseña con el token del enlace
      */
-    @DeleteMapping("/table/{tableName}")
-    public Mono<ResponseEntity<String>> deleteFromTable(
-            @PathVariable String tableName,
-            @RequestParam String filter) {
-        
-        return supabaseService.delete(tableName, filter)
-                .map(ResponseEntity::ok)
-                .onErrorReturn(ResponseEntity.status(500).body("Error al eliminar de la tabla"));
+    @PostMapping("/auth/password/apply")
+    public Mono<ResponseEntity<Map<String, String>>> applyPassword(@RequestBody PasswordApplyRequest request) {
+        return supabaseService.applyPasswordReset(request)
+                .map(msg -> ResponseEntity.ok(Map.of("message", msg)))
+                .onErrorReturn(ResponseEntity.status(400).body(Map.of("message", "No se pudo actualizar la contraseña")));
     }
 
     /**
-     * Endpoint para ejecutar funciones de Supabase
-     * POST /api/rpc/{functionName}
+     * Completar/actualizar el perfil después de login (Google o email)
      */
-    @PostMapping("/rpc/{functionName}")
-    public Mono<ResponseEntity<String>> executeFunction(
-            @PathVariable String functionName,
-            @RequestBody(required = false) Map<String, Object> parameters) {
-        
-        return supabaseService.rpc(functionName, parameters)
-                .map(ResponseEntity::ok)
-                .onErrorReturn(ResponseEntity.status(500).body("Error al ejecutar la función"));
-    }
-
-    /**
-     * Endpoint de ejemplo específico para usuarios (si tienes una tabla 'usuarios')
-     */
-    @GetMapping("/usuarios")
-    public Mono<ResponseEntity<String>> getUsuarios() {
-        return supabaseService.select("usuarios", "*", null)
-                .map(ResponseEntity::ok)
-                .onErrorReturn(ResponseEntity.status(500).body("Error al obtener usuarios"));
-    }
-
-    /**
-     * Endpoint para crear un nuevo usuario
-     */
-    @PostMapping("/usuarios")
-    public Mono<ResponseEntity<String>> createUsuario(@RequestBody Map<String, Object> usuario) {
-        return supabaseService.insert("usuarios", usuario)
-                .map(ResponseEntity::ok)
-                .onErrorReturn(ResponseEntity.status(500).body("Error al crear usuario"));
+    @PostMapping("/auth/onboard")
+    public Mono<ResponseEntity<Map<String, String>>> onboard(@RequestBody OnboardRequest request) {
+        return supabaseService.onboard(request)
+                .map(msg -> ResponseEntity.ok(Map.of("message", msg)))
+                .onErrorReturn(ResponseEntity.status(400).body(Map.of("message", "No se pudo actualizar el perfil")));
     }
 }

@@ -1,13 +1,14 @@
 package org.uniproject.SaviaU.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class LoginRequest {
+public class PasswordResetRequest {
     private String email;
-    private String password;
+    private String redirectUri;
 }
+
