@@ -1,6 +1,7 @@
 import { StyleSheet, Dimensions } from 'react-native';
 
 const { width } = Dimensions.get('window');
+const isSmall = width < 640;
 
 export const indexStyles = StyleSheet.create({
  
@@ -72,10 +73,11 @@ export const indexStyles = StyleSheet.create({
   
   header: {
     backgroundColor: '#198754',
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: 24,
-    height: 120,
+    // increase top padding on small devices so header content clears the status bar
+    paddingTop: isSmall ? 36 : 50,
+    paddingBottom: isSmall ? 12 : 20,
+    paddingHorizontal: isSmall ? 16 : 24,
+    height: isSmall ? 88 : 120,
   },
   navContainer: {
     flexDirection: 'row',
@@ -88,8 +90,16 @@ export const indexStyles = StyleSheet.create({
     alignItems: 'center',
   },
   navLogo: {
-    width: 220,
-    height: 220,
+    // Mobile: larger so it doesn't overlap status icons; Desktop: revert to original smaller size
+    width: isSmall ? 220 : 160,
+    height: isSmall ? 100 : 60,
+    // enforce minimum sizes for mobile; desktop keeps original minimums
+    minWidth: isSmall ? 200 : 160,
+    minHeight: isSmall ? 90 : 60,
+    // cap maximum so it doesn't grow unreasonably on very wide screens
+    maxWidth: 320,
+    // small left offset so the logo isn't too close to the screen edge
+    marginLeft: isSmall ? 8 : 12,
     resizeMode: 'contain',
   },
   navTitle: {
@@ -101,40 +111,44 @@ export const indexStyles = StyleSheet.create({
     flexDirection: 'row',
   },
   navButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 28,
-    paddingVertical: 14,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   navButtonText: {
-    color: '#ffffff',
+    color: '#198754',
     fontWeight: '600',
-    fontSize: 18,
+    fontSize: 16,
   },
 
-  
   heroSection: {
     backgroundColor: '#ffffff',
-    paddingVertical: 60,
-    paddingHorizontal: 24,
+    paddingVertical: isSmall ? 36 : 60,
+    paddingHorizontal: isSmall ? 18 : 24,
   },
   heroContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: isSmall ? 'column' : 'row',
+    alignItems: isSmall ? 'flex-start' : 'center',
     justifyContent: 'space-between',
   },
   heroText: {
     flex: 1,
-    paddingRight: 20,
+    paddingRight: isSmall ? 0 : 20,
+    marginBottom: isSmall ? 18 : 0,
   },
   heroTitle: {
-    fontSize: 42,
+    fontSize: isSmall ? 28 : 42,
     fontWeight: 'bold',
     color: '#212529',
-    lineHeight: 50,
-    marginBottom: 20,
+    lineHeight: isSmall ? 36 : 50,
+    marginBottom: 14,
   },
   heroTitleAccent: {
     color: '#198754',
@@ -158,12 +172,13 @@ export const indexStyles = StyleSheet.create({
     fontWeight: '600',
   },
   heroImage: {
-    flex: 0.5,
+    flex: isSmall ? 0 : 0.5,
     alignItems: 'center',
   },
   heroLogo: {
-    width: 200,
-    height: 200,
+    width: isSmall ? 140 : 200,
+    height: isSmall ? 140 : 200,
+    alignSelf: isSmall ? 'center' : 'flex-end',
   },
 
   
@@ -183,7 +198,14 @@ export const indexStyles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 16,
+    alignItems: 'flex-start',
+    // gap is not fully supported on all RN versions; use margins on cards instead
+  },
+  servicesRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
   serviceCard: {
     backgroundColor: '#ffffff',
@@ -194,13 +216,14 @@ export const indexStyles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 3,
-    width: '48%',
-    minHeight: 180,
+    // width is set dynamically via inline style to support responsive columns
+    minHeight: 160,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: 'transparent',
     position: 'relative',
     overflow: 'hidden',
+    marginBottom: 16,
   },
   serviceCardHover: {
     borderColor: '#198754',
@@ -251,6 +274,7 @@ export const indexStyles = StyleSheet.create({
     opacity: 0,
     maxHeight: 0,
     overflow: 'hidden',
+    
   },
   serviceButtonVisible: {
     opacity: 1,

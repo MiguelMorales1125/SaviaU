@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useWindowDimensions, Platform } from 'react-native';
 import {
   View,
   Text,
@@ -8,6 +9,7 @@ import {
   Animated,
   ScrollView,
 } from 'react-native';
+// safe-area-context removed: using fixed header offsets instead
 import { router } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import { indexStyles as styles } from '../styles/index.styles';
@@ -19,15 +21,12 @@ export default function Index() {
   const [hoveredCard, setHoveredCard] = useState<number | null>(null);
   
  
+  
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const logoScale = useRef(new Animated.Value(0.8)).current;
-  const cardAnimations = useRef([
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-  ]).current;
+  
 
   useEffect(() => {
    
@@ -72,6 +71,57 @@ export default function Index() {
     }
   }, [user, initialLoading]);
 
+  // Services data
+  const services = [
+    {
+      title: 'Contenido Académico',
+      description: 'Accede a material educativo actualizado y recursos especializados.',
+      icon: '📚',
+      color: '#198754',
+    },
+    {
+      title: 'Retos Educativos',
+      description: 'Participa en desafíos interactivos que potencian tu aprendizaje.',
+      icon: '🎯',
+      color: '#17a2b8',
+    },
+    {
+      title: 'Progreso Personal',
+      description: 'Mantén un seguimiento detallado de tus logros académicos.',
+      icon: '📊',
+      color: '#fd7e14',
+    },
+    {
+      title: 'Comunidad Estudiantil',
+      description: 'Conecta con otros estudiantes y comparte conocimientos.',
+      icon: '👥',
+      color: '#6f42c1',
+    },
+  ];
+
+  const cardAnimations = useRef(services.map(() => new Animated.Value(0))).current;
+
+  // Responsive columns based on window width
+  const { width } = useWindowDimensions();
+  const getColumns = (w: number) => {
+    if (w < 480) return 1; // very narrow phones
+    if (w < 900) return 2; // phones / small tablets
+    if (w < 1400) return 3; // large tablets / small desktop
+    return 4; // desktop
+  };
+  const columns = getColumns(width);
+
+  // removed SafeAreaInsets usage per request
+
+
+ // al principio del componente (antes de usar logoWidth/logoHeight)
+const MOBILE_LOGO = { width: 200, height: 150 };   // cambiar aquí para móvil
+const TABLET_LOGO = { width: 240, height: 110 };  // cambiar si quieres
+const DESKTOP_LOGO = { width: 220, height: 220 };  // cambiar aquí para web/desktop
+
+const isSmallScreen = width < 640;
+let logoWidth = isSmallScreen ? MOBILE_LOGO.width : DESKTOP_LOGO.width;
+let logoHeight = isSmallScreen ? MOBILE_LOGO.height : DESKTOP_LOGO.height;
   if (initialLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -108,27 +158,31 @@ export default function Index() {
 
   
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+    <View style={{ flex: 1, backgroundColor: styles.container.backgroundColor }}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       
-      <Animated.View 
+      <Animated.View
         style={[
           styles.header,
           {
+            // simple fixed spacing to avoid status overlap
+            paddingTop: 36,
+            height: 132,
             opacity: fadeAnim,
             transform: [{ translateY: slideAnim }],
           },
         ]}
       >
         <View style={styles.navContainer}>
-          <View style={styles.logoSection}>
+          <View style={[styles.logoSection, { marginTop: 8 }]}>
             <Image
               source={require('../assets/images/SaviaU-Logo.png')}
-              style={styles.navLogo}
+              style={[styles.navLogo, { width: logoWidth, height: logoHeight }]}
               resizeMode="contain"
             />
           </View>
           <View style={styles.navButtons}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.navButton}
               onPress={() => router.push('/(auth)/login')}
             >
@@ -165,94 +219,76 @@ export default function Index() {
               <Text style={styles.heroCTAText}>Comenzar Ahora</Text>
             </TouchableOpacity>
           </View>
-          <Animated.View 
-            style={[
-              styles.heroImage,
-              { transform: [{ scale: logoScale }] }
-            ]}
-          >
-            <Image
-              source={require('../assets/images/SaviaU-Logo.png')}
-              style={styles.heroLogo}
-              resizeMode="contain"
-            />
-          </Animated.View>
+          {/* Imagen del hero removida para versión móvil/texto limpio */}
         </View>
       </Animated.View>
 
       <View style={styles.servicesSection}>
         <Text style={styles.sectionTitle}>Nuestros Servicios</Text>
         <View style={styles.servicesGrid}>
-          {[
-            {
-              title: 'Contenido Académico',
-              description: 'Accede a material educativo actualizado y recursos especializados.',
-              icon: '📚',
-              color: '#198754',
-            },
-            {
-              title: 'Retos Educativos',
-              description: 'Participa en desafíos interactivos que potencian tu aprendizaje.',
-              icon: '🎯',
-              color: '#17a2b8',
-            },
-            {
-              title: 'Progreso Personal',
-              description: 'Mantén un seguimiento detallado de tus logros académicos.',
-              icon: '📊',
-              color: '#fd7e14',
-            },
-            {
-              title: 'Comunidad Estudiantil',
-              description: 'Conecta con otros estudiantes y comparte conocimientos.',
-              icon: '👥',
-              color: '#6f42c1',
-            },
-          ].map((service, index) => (
-            <Animated.View
-              key={index}
-              style={[
-                styles.serviceCard,
-                hoveredCard === index && styles.serviceCardHover,
-                {
-                  opacity: cardAnimations[index],
-                  transform: [
-                    {
-                      translateY: cardAnimations[index].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [30, 0],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-              onTouchStart={() => setHoveredCard(index)}
-              onTouchEnd={() => setHoveredCard(null)}
-            >
-              <View style={[styles.serviceIcon, { backgroundColor: service.color + '20' }]}>
-                <Text style={styles.serviceIconText}>{service.icon}</Text>
-              </View>
-              <View style={styles.serviceContent}>
-                <Text style={styles.serviceTitle}>{service.title}</Text>
-                <Text style={[
-                  styles.serviceDescription,
-                  hoveredCard === index && styles.serviceDescriptionVisible
-                ]}>
-                  {service.description}
-                </Text>
-                <TouchableOpacity 
-                  style={[
-                    styles.serviceButton, 
-                    { backgroundColor: service.color },
-                    hoveredCard === index && styles.serviceButtonVisible
-                  ]}
-                  onPress={() => router.push('/(auth)/register')}
-                >
-                  <Text style={styles.serviceButtonText}>Explorar</Text>
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
-          ))}
+          {(() => {
+            const rows: Array<typeof services> = [] as any;
+            for (let i = 0; i < services.length; i += columns) {
+              rows.push(services.slice(i, i + columns));
+            }
+            return rows.map((row, rowIndex) => (
+              <View key={rowIndex} style={styles.servicesRow}>
+                  {row.map((service, colIndex) => {
+                    const index = rowIndex * columns + colIndex;
+                    const itemWidth = `${100 / columns - 3}%`;
+                    return (
+                      <Animated.View
+                        key={index}
+                        style={[
+                          styles.serviceCard,
+                          { width: itemWidth as any },
+                          hoveredCard === index && styles.serviceCardHover,
+                          {
+                            opacity: cardAnimations[index],
+                            transform: [
+                              {
+                                translateY: cardAnimations[index].interpolate({
+                                  inputRange: [0, 1],
+                                  outputRange: [30, 0],
+                                }),
+                              },
+                            ],
+                          },
+                        ]}
+                        onTouchStart={() => setHoveredCard(index)}
+                        onTouchEnd={() => setHoveredCard(null)}
+                      >
+                        <View style={[styles.serviceIcon, { backgroundColor: service.color + '20' }]}>
+                          <Text style={styles.serviceIconText}>{service.icon}</Text>
+                        </View>
+                        <View style={styles.serviceContent}>
+                          <Text style={styles.serviceTitle}>{service.title}</Text>
+                          <Text style={[
+                            styles.serviceDescription,
+                            hoveredCard === index && styles.serviceDescriptionVisible
+                          ]}>
+                            {service.description}
+                          </Text>
+                          <TouchableOpacity 
+                            style={[
+                              styles.serviceButton, 
+                              { backgroundColor: service.color },
+                              hoveredCard === index && styles.serviceButtonVisible
+                            ]}
+                            onPress={() => router.push('/(auth)/register')}
+                          >
+                            <Text style={styles.serviceButtonText}>Explorar</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </Animated.View>
+                    );
+                  })}
+                  {Array.from({ length: Math.max(0, columns - row.length) }).map((_, i) => (
+                    <View key={`spacer-${i}`} style={{ width: `${100 / columns - 3}%`, marginBottom: 16 }} />
+                  ))}
+                </View>
+            ));
+          })()}
         </View>
       </View>
 
@@ -300,6 +336,7 @@ export default function Index() {
           @2025 SaviaU
         </Text>
       </Animated.View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }

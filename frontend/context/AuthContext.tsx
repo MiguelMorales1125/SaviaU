@@ -12,6 +12,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<{ success: boolean; data?: any; error?: string }>;
+  register: (fullName: string, email: string, password: string, carrera?: string, universidad?: string, semestre?: number) => Promise<{ success: boolean; data?: any; error?: string }>;
   logout: () => void;
   loading: boolean;
   initialLoading: boolean; 
@@ -20,6 +21,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   login: async (_email: string, _password: string) => ({ success: false }),
+  register: async (_fullName: string, _email: string, _password: string) => ({ success: false }),
   logout: () => {},
   loading: false,
   initialLoading: true,
@@ -95,6 +97,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const register = async (fullName: string, email: string, password: string, carrera?: string, universidad?: string, semestre?: number) => {
+    setLoading(true);
+    try {
+      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.REGISTER), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName,
+          email,
+          password,
+          carrera: carrera || '',
+          universidad: universidad || '',
+          semestre: semestre || 0,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Register exitoso:', data);
+        setUser(data.user || null);
+        return { success: true, data };
+      } else {
+        const text = await response.text();
+        console.error('Error register:', text);
+        return { success: false, error: 'No se pudo registrar' };
+      }
+    } catch (error) {
+      console.error('Error de red en register:', error);
+      return { success: false, error: 'Error de conexión' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = () => {
     console.log('Cerrando sesión...');
     setUser(null);
@@ -105,6 +141,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     <AuthContext.Provider value={{ 
       user, 
       login, 
+      register,
       logout, 
       loading, 
       initialLoading 

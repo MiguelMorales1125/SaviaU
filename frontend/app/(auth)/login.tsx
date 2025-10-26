@@ -19,14 +19,12 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [showSuccessLoading, setShowSuccessLoading] = useState(false);
-
-  // Animaciones
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const logoScale = useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
-    // Animaciones del formulario al cargar la pantalla
+    
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -60,14 +58,14 @@ export default function Login() {
 
       if (result.success) {
         console.log("Login exitoso, mostrando pantalla de carga");
-        // Mostrar pantalla de carga por 2 segundos antes de ir a tabs
+        
         setShowSuccessLoading(true);
         
-        // Resetear animaciones para la pantalla de carga
+        
         fadeAnim.setValue(0);
         logoScale.setValue(0.8);
         
-        // Animar la pantalla de carga
+        
         Animated.parallel([
           Animated.timing(fadeAnim, {
             toValue: 1,
@@ -82,7 +80,7 @@ export default function Login() {
           }),
         ]).start();
         
-        // Ir a tabs después de 2 segundos
+        
         setTimeout(() => {
           router.replace("/(tabs)/home");
         }, 2000);
@@ -96,7 +94,7 @@ export default function Login() {
     
   };
 
-  // Mostrar pantalla de carga solo después de login exitoso
+
   if (showSuccessLoading) {
     return (
       <View style={styles.loadingContainer}>
