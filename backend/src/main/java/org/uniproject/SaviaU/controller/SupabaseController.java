@@ -4,37 +4,37 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.uniproject.SaviaU.dto.LoginRequest;
-import org.uniproject.SaviaU.dto.LoginResponse;
-import org.uniproject.SaviaU.dto.RegisterRequest;
-import org.uniproject.SaviaU.dto.GoogleFinishRequest;
-import org.uniproject.SaviaU.dto.PasswordResetRequest;
-import org.uniproject.SaviaU.dto.PasswordApplyRequest;
-import org.uniproject.SaviaU.dto.OnboardRequest;
-import org.uniproject.SaviaU.service.SupabaseService;
 import reactor.core.publisher.Mono;
 
-import java.util.Map;
 import java.util.List;
-import org.uniproject.SaviaU.dto.DiagnosticQuestionDto;
-import org.uniproject.SaviaU.dto.DiagnosticSubmitRequest;
-import org.uniproject.SaviaU.dto.DiagnosticResultDto;
+import java.util.Map;
+
+import org.uniproject.SaviaU.dto.*;
+import org.uniproject.SaviaU.service.auth.AuthService;
+import org.uniproject.SaviaU.service.auth.PasswordService;
+import org.uniproject.SaviaU.service.profile.OnboardingService;
+import org.uniproject.SaviaU.service.diagnostic.DiagnosticService;
+import org.uniproject.SaviaU.service.health.HealthService;
 
 @Slf4j
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*") // Para permitir peticiones desde el frontend
+@CrossOrigin(origins = "*")
 public class SupabaseController {
 
-    private final SupabaseService supabaseService;
+    private final AuthService authService;
+    private final PasswordService passwordService;
+    private final OnboardingService onboardingService;
+    private final DiagnosticService diagnosticService;
+    private final HealthService healthService;
 
     /**
      * Endpoint para verificar la conectividad con Supabase
      */
     @GetMapping("/health")
     public Mono<ResponseEntity<Map<String, Object>>> healthCheck() {
-        return supabaseService.healthCheck()
+        return healthService.healthCheck()
                 .map(isHealthy -> {
                     if (isHealthy) {
                         return ResponseEntity.ok(Map.of(
@@ -58,7 +58,7 @@ public class SupabaseController {
      */
     @PostMapping("/auth/login")
     public Mono<ResponseEntity<LoginResponse>> login(@RequestBody LoginRequest loginRequest) {
-        return supabaseService.login(loginRequest)
+        return authService.login(loginRequest)
                 .map(ResponseEntity::ok)
                 .onErrorReturn(ResponseEntity.status(401).build());
     }
@@ -69,7 +69,7 @@ public class SupabaseController {
      */
     @PostMapping("/auth/register")
     public Mono<ResponseEntity<LoginResponse>> register(@RequestBody RegisterRequest request) {
-        return supabaseService.register(request)
+        return authService.register(request)
                 .map(ResponseEntity::ok)
                 .onErrorReturn(ResponseEntity.status(400).build());
     }
@@ -80,7 +80,7 @@ public class SupabaseController {
      */
     @GetMapping("/auth/google/url")
     public ResponseEntity<Map<String, String>> getGoogleAuthUrl(@RequestParam(required = false) String redirectTo) {
-        String url = supabaseService.buildGoogleAuthUrl(redirectTo);
+        String url = authService.buildGoogleAuthUrl(redirectTo);
         return ResponseEntity.ok(Map.of("url", url));
     }
 
@@ -89,7 +89,7 @@ public class SupabaseController {
      */
     @PostMapping("/auth/google/finish")
     public Mono<ResponseEntity<LoginResponse>> finishGoogle(@RequestBody GoogleFinishRequest request) {
-        return supabaseService.finishGoogleLogin(request)
+        return authService.finishGoogleLogin(request)
                 .map(ResponseEntity::ok)
                 .onErrorReturn(ResponseEntity.status(400).build());
     }
@@ -99,7 +99,7 @@ public class SupabaseController {
      */
     @PostMapping("/auth/password/reset")
     public Mono<ResponseEntity<Map<String, String>>> sendPasswordReset(@RequestBody PasswordResetRequest request) {
-        return supabaseService.sendPasswordReset(request)
+        return passwordService.sendPasswordReset(request)
                 .map(msg -> ResponseEntity.ok(Map.of("message", msg)))
                 .onErrorReturn(ResponseEntity.status(400).body(Map.of("message", "No se pudo enviar el correo")));
     }
@@ -109,7 +109,7 @@ public class SupabaseController {
      */
     @PostMapping("/auth/password/apply")
     public Mono<ResponseEntity<Map<String, String>>> applyPassword(@RequestBody PasswordApplyRequest request) {
-        return supabaseService.applyPasswordReset(request)
+        return passwordService.applyPasswordReset(request)
                 .map(msg -> ResponseEntity.ok(Map.of("message", msg)))
                 .onErrorReturn(ResponseEntity.status(400).body(Map.of("message", "No se pudo actualizar la contraseña")));
     }
@@ -119,7 +119,7 @@ public class SupabaseController {
      */
     @PostMapping("/auth/onboard")
     public Mono<ResponseEntity<Map<String, String>>> onboard(@RequestBody OnboardRequest request) {
-        return supabaseService.onboard(request)
+        return onboardingService.onboard(request)
                 .map(msg -> ResponseEntity.ok(Map.of("message", msg)))
                 .onErrorReturn(ResponseEntity.status(400).body(Map.of("message", "No se pudo actualizar el perfil")));
     }
@@ -129,7 +129,7 @@ public class SupabaseController {
      */
     @GetMapping("/diagnostic/questions")
     public Mono<ResponseEntity<List<DiagnosticQuestionDto>>> getDiagnosticQuestions() {
-        return supabaseService.getDiagnosticQuestions()
+        return diagnosticService.getQuestions()
                 .map(ResponseEntity::ok)
                 .onErrorReturn(ResponseEntity.status(500).build());
     }
@@ -139,7 +139,7 @@ public class SupabaseController {
      */
     @GetMapping("/diagnostic/status")
     public Mono<ResponseEntity<Map<String, Object>>> diagnosticStatus(@RequestParam String accessToken) {
-        return supabaseService.diagnosticStatus(accessToken)
+        return diagnosticService.getStatus(accessToken)
                 .map(ResponseEntity::ok)
                 .onErrorReturn(ResponseEntity.status(400).body(Map.of("message", "No se pudo obtener el estado")));
     }
@@ -149,7 +149,7 @@ public class SupabaseController {
      */
     @PostMapping("/diagnostic/submit")
     public Mono<ResponseEntity<DiagnosticResultDto>> submitDiagnostic(@RequestBody DiagnosticSubmitRequest request) {
-        return supabaseService.submitDiagnostic(request)
+        return diagnosticService.submit(request)
                 .map(ResponseEntity::ok)
                 .onErrorReturn(ResponseEntity.status(400).build());
     }
@@ -159,7 +159,7 @@ public class SupabaseController {
      */
     @GetMapping("/diagnostic/result")
     public Mono<ResponseEntity<DiagnosticResultDto>> getLastResult(@RequestParam String accessToken) {
-        return supabaseService.getLastDiagnosticResult(accessToken)
+        return diagnosticService.getLastResult(accessToken)
                 .map(ResponseEntity::ok)
                 .onErrorReturn(ResponseEntity.status(404).build());
     }
