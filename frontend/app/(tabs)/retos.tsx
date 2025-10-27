@@ -133,7 +133,7 @@ export default function Retos() {
               {q.options.find(o => o.id === selected)?.correct ? (
                 <Text style={styles.feedbackCorrect}>¡Correcto! {"\n"}El Ártico se calienta más rápido.</Text>
               ) : (
-                <Text style={styles.feedbackWrong}>No es correcto. Intenta revisar las lecturas sobre cambio climático.</Text>
+                <Text style={styles.feedbackWrong}>{'\u00A0'}</Text>
               )}
             </View>
           ) : null}

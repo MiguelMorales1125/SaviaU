@@ -26,7 +26,7 @@ export default function Register() {
     'Administración',
     'Ingeniería Industrial',
     'Derecho',
-    'Comunicación Social',
+    'Licenciatura en educación física y deporte',
     'Otra'
   ];
 
@@ -243,8 +243,10 @@ export default function Register() {
     try {
       const result = await register(fullName, email, password, carrera, universidad, semestreNum);
       if (result.success) {
-        // Navegar a pantalla principal
-        router.replace('/(tabs)/home');
+        // After registering, send the user to the diagnostic test so they can
+        // take it immediately (backend may return a supabaseAccessToken which
+        // is already persisted by the auth context).
+        router.replace('/diagnostic');
       } else {
         Alert.alert('Error', result.error || 'No se pudo registrar');
       }

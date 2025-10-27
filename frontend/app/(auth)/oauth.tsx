@@ -60,7 +60,15 @@ export default function OAuthFinish() {
           finished = true;
           setStatus('success');
           setMsg('Login con Google completado. Redirigiendo...');
-          setTimeout(() => router.replace('/(tabs)/home'), 1200);
+          // If backend indicates user is not onboarded, redirect to onboarding screen
+          const isOnboarded = Boolean(res.data?.user?.onboarded);
+          setTimeout(() => {
+            if (!isOnboarded) {
+              router.replace('/(auth)/onboard');
+            } else {
+              router.replace('/(tabs)/home');
+            }
+          }, 1200);
         } else {
           finished = true;
           setStatus('error');
