@@ -15,5 +15,9 @@ public class ViewController {
     public String oauthAlias() {
         return "redirect:/oauth.html";
     }
-}
 
+    @GetMapping({"/diagnostic"})
+    public String diagnosticAlias() {
+        return "redirect:/diagnostic.html";
+    }
+}

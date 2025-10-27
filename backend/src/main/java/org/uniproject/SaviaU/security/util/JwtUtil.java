@@ -8,6 +8,8 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 public class JwtUtil {
 
     public static String generateHs256Token(String subject,
@@ -49,12 +51,62 @@ public class JwtUtil {
         }
     }
 
+    /**
+     * Valida un JWT HS256 y retorna los claims si es válido y no expiró.
+     * Lanza RuntimeException si es inválido.
+     */
+    public static Map<String, Object> validateHs256AndGetClaims(String token, String secret) {
+        try {
+            String[] parts = token.split("\\.");
+            if (parts.length != 3) throw new RuntimeException("Formato de token inválido");
+            String headerB64 = parts[0];
+            String payloadB64 = parts[1];
+            String signatureB64 = parts[2];
+
+            String signingInput = headerB64 + "." + payloadB64;
+            String expectedSig = hmacSha256(signingInput, secret);
+            if (!constantTimeEquals(signatureB64, expectedSig)) {
+                throw new RuntimeException("Firma inválida");
+            }
+
+            // Decodificar payload y parsear JSON
+            byte[] payloadBytes = Base64.getUrlDecoder().decode(payloadB64);
+            ObjectMapper mapper = new ObjectMapper();
+            @SuppressWarnings("unchecked")
+            Map<String, Object> claims = mapper.readValue(payloadBytes, Map.class);
+
+            // Validar exp si existe
+            Object expObj = claims.get("exp");
+            if (expObj instanceof Number) {
+                long exp = ((Number) expObj).longValue();
+                long now = Instant.now().getEpochSecond();
+                if (now > exp) throw new RuntimeException("Token expirado");
+            }
+
+            return claims;
+        } catch (RuntimeException re) {
+            throw re;
+        } catch (Exception e) {
+            throw new RuntimeException("Error validando JWT: " + e.getMessage(), e);
+        }
+    }
+
     private static String hmacSha256(String data, String secret) throws Exception {
         Mac mac = Mac.getInstance("HmacSHA256");
         SecretKeySpec keySpec = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
         mac.init(keySpec);
         byte[] raw = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
         return base64UrlEncode(raw);
+    }
+
+    private static boolean constantTimeEquals(String a, String b) {
+        if (a == null || b == null) return false;
+        if (a.length() != b.length()) return false;
+        int result = 0;
+        for (int i = 0; i < a.length(); i++) {
+            result |= a.charAt(i) ^ b.charAt(i);
+        }
+        return result == 0;
     }
 
     private static String base64UrlEncode(byte[] bytes) {
@@ -87,4 +139,3 @@ public class JwtUtil {
         return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }
-

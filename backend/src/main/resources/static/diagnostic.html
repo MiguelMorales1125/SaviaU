@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prueba diagnóstica</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:20px;}
+    .card{border:1px solid #ddd;border-radius:8px;padding:16px;margin:12px 0}
+    .row{margin:8px 0}
+    button{cursor:pointer;padding:8px 12px;border:1px solid #1a73e8;background:#1a73e8;color:#fff;border-radius:6px}
+    button.secondary{background:#fff;color:#1a73e8}
+    .hidden{display:none}
+    .muted{color:#666;font-size:14px}
+  </style>
+</head>
+<body>
+<h1>Prueba diagnóstica</h1>
+<div class="card">
+  <div class="row">
+    <label>Access Token de Supabase:</label>
+    <input id="token" type="text" placeholder="Pegue aquí el access_token" style="width:100%" />
+  </div>
+  <div class="row">
+    <button id="btnStatus" class="secondary">Ver estado</button>
+    <button id="btnLoad">Cargar preguntas</button>
+  </div>
+  <div id="status" class="muted"></div>
+</div>
+
+<div id="questions" class="card hidden"></div>
+<div id="result" class="card hidden"></div>
+
+<script>
+const apiBase = location.origin + '/api';
+const $ = (id) => document.getElementById(id);
+
+$('btnStatus').onclick = async () => {
+  const token = $('token').value.trim();
+  if (!token) return alert('Pegue el access_token de Supabase');
+  try {
+    const res = await fetch(`${apiBase}/diagnostic/status?accessToken=${encodeURIComponent(token)}`);
+    const data = await res.json();
+    $('status').textContent = `Completado: ${data.completed || false} | Nivel: ${data.level || '-'} | Fecha: ${data.completedAt || '-'}`;
+  } catch (e) {
+    $('status').textContent = 'Error al consultar estado';
+  }
+};
+
+$('btnLoad').onclick = async () => {
+  const res = await fetch(`${apiBase}/diagnostic/questions`);
+  const list = await res.json();
+  if (!Array.isArray(list) || list.length === 0) {
+    $('questions').classList.remove('hidden');
+    $('questions').innerHTML = '<b>No hay preguntas activas.</b>';
+    return;
+  }
+  const token = $('token').value.trim();
+  if (!token) return alert('Pegue el access_token de Supabase');
+
+  const formId = 'form_' + Math.random().toString(36).slice(2);
+  const html = [`<form id="${formId}">`];
+  list.forEach((q, idx) => {
+    html.push(`<div class="row"><b>${idx+1}. ${q.prompt}</b><br/><span class="muted">Tema: ${q.topic} | Dificultad: ${q.difficulty||'-'}</span></div>`);
+    q.options.forEach(opt => {
+      const name = `q_${q.id}`;
+      const id = `${name}_${opt.id}`;
+      html.push(`<div class="row"><label for="${id}"><input type="radio" id="${id}" name="${name}" value="${opt.id}"/> ${opt.text}</label></div>`);
+    });
+  });
+  html.push(`<div class="row"><button type="submit">Enviar</button></div>`);
+  html.push('</form>');
+  const box = $('questions');
+  box.classList.remove('hidden');
+  box.innerHTML = html.join('');
+
+  document.getElementById(formId).onsubmit = async (ev) => {
+    ev.preventDefault();
+    // Construir payload
+    const answers = [];
+    list.forEach(q => {
+      const name = `q_${q.id}`;
+      const selected = document.querySelector(`input[name="${name}"]:checked`);
+      if (selected) {
+        answers.push({ questionId: q.id, optionId: selected.value });
+      }
+    });
+    if (answers.length === 0) return alert('Selecciona al menos una opción');
+    const payload = { accessToken: token, answers };
+
+    const res = await fetch(`${apiBase}/diagnostic/submit`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    });
+    if (!res.ok) return alert('Error enviando el diagnóstico');
+    const data = await res.json();
+
+    const r = $('result');
+    r.classList.remove('hidden');
+    r.innerHTML = `<h3>Resultado</h3>
+      <div>Score: <b>${data.scorePercent?.toFixed?.(1) ?? data.scorePercent}%</b></div>
+      <div>Nivel: <b>${data.level}</b></div>
+      <div>Aciertos: <b>${data.totalCorrect}/${data.totalQuestions}</b></div>
+      <div>Recomendaciones: ${(data.recommendedTopics||[]).join(', ') || '-'}</div>`;
+  };
+};
+</script>
+</body>
+</html>

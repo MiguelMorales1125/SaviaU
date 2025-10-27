@@ -15,6 +15,10 @@ import org.uniproject.SaviaU.service.SupabaseService;
 import reactor.core.publisher.Mono;
 
 import java.util.Map;
+import java.util.List;
+import org.uniproject.SaviaU.dto.DiagnosticQuestionDto;
+import org.uniproject.SaviaU.dto.DiagnosticSubmitRequest;
+import org.uniproject.SaviaU.dto.DiagnosticResultDto;
 
 @Slf4j
 @RestController
@@ -118,5 +122,45 @@ public class SupabaseController {
         return supabaseService.onboard(request)
                 .map(msg -> ResponseEntity.ok(Map.of("message", msg)))
                 .onErrorReturn(ResponseEntity.status(400).body(Map.of("message", "No se pudo actualizar el perfil")));
+    }
+
+    /**
+     * Preguntas del diagnóstico (múltiple opción, sin marcar correctas)
+     */
+    @GetMapping("/diagnostic/questions")
+    public Mono<ResponseEntity<List<DiagnosticQuestionDto>>> getDiagnosticQuestions() {
+        return supabaseService.getDiagnosticQuestions()
+                .map(ResponseEntity::ok)
+                .onErrorReturn(ResponseEntity.status(500).build());
+    }
+
+    /**
+     * Estado del diagnóstico del usuario (require accessToken de Supabase)
+     */
+    @GetMapping("/diagnostic/status")
+    public Mono<ResponseEntity<Map<String, Object>>> diagnosticStatus(@RequestParam String accessToken) {
+        return supabaseService.diagnosticStatus(accessToken)
+                .map(ResponseEntity::ok)
+                .onErrorReturn(ResponseEntity.status(400).body(Map.of("message", "No se pudo obtener el estado")));
+    }
+
+    /**
+     * Enviar respuestas del diagnóstico y obtener resumen
+     */
+    @PostMapping("/diagnostic/submit")
+    public Mono<ResponseEntity<DiagnosticResultDto>> submitDiagnostic(@RequestBody DiagnosticSubmitRequest request) {
+        return supabaseService.submitDiagnostic(request)
+                .map(ResponseEntity::ok)
+                .onErrorReturn(ResponseEntity.status(400).build());
+    }
+
+    /**
+     * Último resultado del diagnóstico del usuario
+     */
+    @GetMapping("/diagnostic/result")
+    public Mono<ResponseEntity<DiagnosticResultDto>> getLastResult(@RequestParam String accessToken) {
+        return supabaseService.getLastDiagnosticResult(accessToken)
+                .map(ResponseEntity::ok)
+                .onErrorReturn(ResponseEntity.status(404).build());
     }
 }
