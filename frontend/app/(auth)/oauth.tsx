@@ -48,12 +48,34 @@ export default function OAuthFinish() {
           return false;
         }
 
-        const accessToken = params.get('access_token');
+        const accessToken = params.get('access_token') || params.get('accessToken') || params.get('token');
         const refreshToken = params.get('refresh_token');
         console.debug('Extracted access_token:', accessToken, 'refresh_token:', refreshToken);
 
         if (!accessToken) return false;
 
+        // Remove tokens from the address bar so they don't remain visible
+        try {
+          if (typeof window !== 'undefined' && window.location && window.history && window.history.replaceState) {
+            try {
+              const u = new URL(window.location.href);
+              // remove token-like params from search
+              const searchParams = new URLSearchParams(u.search);
+              ['access_token', 'accessToken', 'token', 'refresh_token'].forEach(k => searchParams.delete(k));
+              u.search = searchParams.toString() ? `?${searchParams.toString()}` : '';
+              // remove token-like params from hash
+              const hash = (u.hash || '').replace(/^#/, '');
+              if (hash) {
+                const hashParams = new URLSearchParams(hash);
+                ['access_token', 'accessToken', 'token', 'refresh_token'].forEach(k => hashParams.delete(k));
+                u.hash = hashParams.toString() ? `#${hashParams.toString()}` : '';
+              }
+              window.history.replaceState(null, '', u.pathname + u.search + u.hash);
+            } catch (e) {
+              // ignore any url/replace errors
+            }
+          }
+        } catch (e) {}
         setStatus('working');
         const res = await finishGoogle(accessToken, refreshToken || undefined);
         if (res.success) {
@@ -61,7 +83,12 @@ export default function OAuthFinish() {
           setStatus('success');
           setMsg('Login con Google completado. Redirigiendo...');
           // If backend indicates user is not onboarded, redirect to onboarding screen
-          const isOnboarded = Boolean(res.data?.user?.onboarded);
+          // Consider the user onboarded if backend returns onboarded or a profile field
+          const isOnboarded = Boolean(
+            res.data?.user?.onboarded ||
+            res.data?.user?.fullName ||
+            (typeof window !== 'undefined' && window.localStorage && window.localStorage.getItem('onboarded') === 'true')
+          );
           setTimeout(() => {
             if (!isOnboarded) {
               router.replace('/(auth)/onboard');

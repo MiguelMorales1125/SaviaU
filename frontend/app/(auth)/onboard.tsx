@@ -1,3 +1,12 @@
+/*
+  onboard.tsx
+
+  Propósito (ES): Pantalla de onboarding / completado de perfil.
+  - Permite al usuario completar datos de perfil (nombre, carrera, universidad, semestre).
+  - Valida los campos y llama a la función `onboard` proporcionada por `AuthContext`.
+  - Tras completar el perfil redirige al flujo del diagnóstico.
+  - Este archivo contiene UI y lógica de cliente únicamente.
+*/
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, ImageBackground, Pressable, Modal, Animated, Dimensions, ScrollView } from 'react-native';
 import { onboardStyles as styles } from './onboard.styles';

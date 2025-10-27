@@ -40,6 +40,27 @@ export default function DiagnosticScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
 
+  // Render header sizing and node early so it can be used by the result branch
+  const isSmallScreen = width < 640;
+  const MOBILE_LOGO = { width: 140, height: 60 };
+  const DESKTOP_LOGO = { width: 220, height: 180 };
+  let logoWidth = isSmallScreen ? MOBILE_LOGO.width : DESKTOP_LOGO.width;
+  let logoHeight = isSmallScreen ? MOBILE_LOGO.height : DESKTOP_LOGO.height;
+  const headerNode = (
+    <Animated.View style={[
+      headerStyles.header,
+      { paddingTop: isSmallScreen ? 12 : 16, paddingBottom: isSmallScreen ? 8 : 10, height: isSmallScreen ? 64 : 80, opacity: fadeAnim, transform: [{ translateY: slideAnim }], borderRadius: 0 },
+    ]}>
+      <View style={headerStyles.navContainer}>
+        <View style={[headerStyles.logoSection, { marginTop: 0 }]}> 
+          <Image source={require('../assets/images/SaviaU-Logo.png')} style={[headerStyles.navLogo, { width: logoWidth, height: logoHeight }]} resizeMode="contain" />
+        </View>
+        {/* preserve spacing but no login button */}
+        <View style={headerStyles.navButtons} />
+      </View>
+    </Animated.View>
+  );
+
   const loadQuestions = useCallback(async () => {
     setLoading(true);
     try {
@@ -157,60 +178,37 @@ export default function DiagnosticScreen() {
     }
 
     return (
-      <ScrollView contentContainerStyle={{ padding: 24 }}>
-        <View style={{ width: '100%', alignItems: 'center', justifyContent: 'center', paddingTop: 12 }}>
-          <Text style={{ fontWeight: '700', fontSize: 22, marginBottom: 8, textAlign: 'center' }}>{'¡Cuestionario Completado!'}</Text>
-          <Text style={{ color: '#666', marginBottom: 18, textAlign: 'center' }}>{`Respondiste correctamente ${correct} de ${total} preguntas.`}</Text>
+      <>
+        {headerNode}
+        <ScrollView style={{ flex: 1, backgroundColor: '#f4f7f6' }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 40 }}>
+          <View style={{ width: '100%', maxWidth: 820, alignItems: 'center', paddingHorizontal: 24 }}>
+            <Text style={{ fontWeight: '800', fontSize: 26, marginBottom: 6, textAlign: 'center' }}>{'¡Cuestionario Completado!'}</Text>
+            <Text style={{ color: '#666', marginBottom: 20, textAlign: 'center' }}>{`Respondiste correctamente ${correct} de ${total} preguntas.`}</Text>
 
-          {/* Trophy circle */}
-          <View style={{ width: 160, height: 160, borderRadius: 80, backgroundColor: '#2ea449', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-            {/* use emoji as a lightweight trophy if no asset available */}
-            <Text style={{ fontSize: 56 }}>🏆</Text>
+            {/* Big trophy circle like the designs */}
+            <View style={{ width: 220, height: 220, borderRadius: 110, backgroundColor: '#2ea449', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <Text style={{ fontSize: 84 }}>🏆</Text>
+            </View>
+
+            {/* Badge (green pill) */}
+            <View style={{ backgroundColor: '#198754', paddingVertical: 10, paddingHorizontal: 26, borderRadius: 28, marginBottom: 14 }}>
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>{badgeText}</Text>
+            </View>
+
+            {/* Score big */}
+            <Text style={{ fontWeight: '800', fontSize: 22, marginBottom: 6 }}>{result.points ? `${result.points} puntos` : `${scoreLabel}`}</Text>
+            <Text style={{ color: '#666', marginBottom: 10 }}>{result.subtitle ? result.subtitle : 'Primer Desafío'}</Text>
+
+            <Text style={{ color: '#444', marginBottom: 22 }}>Recomendaciones: {recommended}</Text>
+
+            <TouchableOpacity onPress={() => router.replace('/(tabs)/home')} style={{ backgroundColor: '#198754', paddingVertical: 14, paddingHorizontal: 40, borderRadius: 28 }}>
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>Continuar</Text>
+            </TouchableOpacity>
           </View>
-
-          {/* Badge */}
-          <View style={{ backgroundColor: '#198754', paddingVertical: 8, paddingHorizontal: 20, borderRadius: 20, marginBottom: 12 }}>
-            <Text style={{ color: '#fff', fontWeight: '700' }}>{badgeText}</Text>
-          </View>
-
-          {/* Score and subtitle */}
-          <Text style={{ fontWeight: '700', fontSize: 20 }}>{result.points ? `${result.points} puntos` : `${scoreLabel}`}</Text>
-          {result.subtitle ? <Text style={{ color: '#666', marginTop: 4 }}>{result.subtitle}</Text> : <Text style={{ color: '#666', marginTop: 4 }}>Primer Desafío</Text>}
-
-          {/* Recommendations (small) */}
-          <Text style={{ color: '#444', marginTop: 12, marginBottom: 18 }}>Recomendaciones: {recommended}</Text>
-
-          <TouchableOpacity onPress={() => router.replace('/(tabs)/home')} style={{ backgroundColor: '#198754', paddingVertical: 12, paddingHorizontal: 36, borderRadius: 24 }}>
-            <Text style={{ color: '#fff', fontWeight: '700' }}>Continuar</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </>
     );
   }
-
-  const isSmallScreen = width < 640;
-  // reduce header size and logo for a compact top header
-  const MOBILE_LOGO = { width: 140, height: 60 };
-  const DESKTOP_LOGO = { width: 220, height: 180 };
-  let logoWidth = isSmallScreen ? MOBILE_LOGO.width : DESKTOP_LOGO.width;
-  let logoHeight = isSmallScreen ? MOBILE_LOGO.height : DESKTOP_LOGO.height;
-
-  // Render header outside the ScrollView so it appears fixed at the top and
-  // doesn't float within the page content. Use smaller padding/height.
-  const headerNode = (
-    <Animated.View style={[
-      headerStyles.header,
-      { paddingTop: isSmallScreen ? 12 : 16, paddingBottom: isSmallScreen ? 8 : 10, height: isSmallScreen ? 64 : 80, opacity: fadeAnim, transform: [{ translateY: slideAnim }], borderRadius: 0 },
-    ]}>
-      <View style={headerStyles.navContainer}>
-        <View style={[headerStyles.logoSection, { marginTop: 0 }]}> 
-          <Image source={require('../assets/images/SaviaU-Logo.png')} style={[headerStyles.navLogo, { width: logoWidth, height: logoHeight }]} resizeMode="contain" />
-        </View>
-        {/* preserve spacing but no login button */}
-        <View style={headerStyles.navButtons} />
-      </View>
-    </Animated.View>
-  );
 
   return (
     <>
