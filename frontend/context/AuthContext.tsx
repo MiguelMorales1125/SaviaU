@@ -1,3 +1,12 @@
+/*
+  AuthContext.tsx
+
+  Propósito (ES): Proveedor de autenticación centralizado para la aplicación.
+  - Administra el usuario actual, tokens (supabase), estado de onboarding y diagnóstico.
+  - Expone funciones para login, registro, OAuth finalización, onboard y reset de contraseña.
+  - Persiste datos relevantes en `localStorage` para evitar redirecciones/flash innecesarios.
+  - Nota: Este archivo es frontend-only; no modifica el backend.
+*/
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { getApiUrl, API_CONFIG } from "../config/api";
 import { fetchDiagnosticStatus } from '../services/diagnostic';
@@ -271,7 +280,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const data = await resp.json();
         // backend returns LoginResponse-like object
         if (data?.user) {
-          setUser(data.user);
+          // Determine whether the backend considers the user onboarded. Some
+          // deployments return `user.onboarded`, others include profile fields
+          // like `fullName`. Treat presence of a fullName as evidence of
+          // onboarding so we don't force the user to re-fill the form.
+          const isOnboarded = Boolean(data.user?.onboarded || data.user?.fullName);
+          const mergedUser = { ...data.user, onboarded: isOnboarded } as any;
+          setUser(mergedUser);
+          // persist a simple onboarded flag in localStorage to avoid repeated redirects
+          try { if (typeof window !== 'undefined' && window.localStorage) {
+            if (isOnboarded) window.localStorage.setItem('onboarded', 'true');
+            else window.localStorage.removeItem('onboarded');
+          } } catch(e) {}
           // if backend indicates diagnostic completed in returned user, persist it
           if (data.user?.diagnosticCompleted) {
             setDiagnosticCompleted(true);
@@ -309,7 +329,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const data = await resp.json();
         // backend should return updated user; merge into state
         if (data?.user) {
-          setUser((prev) => ({ ...(prev || {}), ...data.user, onboarded: true } as any));
+          const merged = { ...(data.user || {}), onboarded: true } as any;
+          setUser((prev) => ({ ...(prev || {}), ...merged } as any));
+          try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('onboarded', 'true'); } catch(e) {}
           if (data.user?.diagnosticCompleted) {
             setDiagnosticCompleted(true);
             try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('diagnosticCompleted', 'true'); } catch(e) {}
@@ -317,9 +339,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         } else {
           // if backend doesn't return full user, at least update local fields
           setUser((prev) => {
-            if (!prev) return { fullName, carrera, universidad, semestre } as any;
+            if (!prev) return { fullName, carrera, universidad, semestre, onboarded: true } as any;
             return { ...prev, fullName, carrera, universidad, semestre, onboarded: true } as any;
           });
+          try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('onboarded', 'true'); } catch(e) {}
         }
 
         return { success: true, data };
@@ -372,6 +395,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
             };
 
         setUser(newUser);
+        // If the registration included a fullName, consider the profile onboarded
+        try { if (typeof window !== 'undefined' && window.localStorage) {
+          if (newUser?.fullName) window.localStorage.setItem('onboarded', 'true');
+        } } catch(e) {}
         // If backend returned a supabase token at register, persist it.
         const tokenFromReg = data?.supabaseAccessToken || data?.accessToken || data?.appToken;
         const refreshFromReg = data?.refreshToken;

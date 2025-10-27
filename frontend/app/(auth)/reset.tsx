@@ -23,7 +23,29 @@ export default function ResetPassword() {
         const hash = (window.location.hash || '').replace(/^#/, '');
         const params = new URLSearchParams(hash || window.location.search);
         const token = params.get('access_token') || params.get('accessToken') || params.get('token');
-        if (token) setAccessToken(token);
+        if (token) {
+          setAccessToken(token);
+          // Remove token from address bar so it doesn't remain visible
+          try {
+            if (typeof window !== 'undefined' && window.location && window.history && window.history.replaceState) {
+              try {
+                const u = new URL(window.location.href);
+                const searchParams = new URLSearchParams(u.search);
+                ['access_token', 'accessToken', 'token'].forEach(k => searchParams.delete(k));
+                u.search = searchParams.toString() ? `?${searchParams.toString()}` : '';
+                const hash = (u.hash || '').replace(/^#/, '');
+                if (hash) {
+                  const hashParams = new URLSearchParams(hash);
+                  ['access_token', 'accessToken', 'token'].forEach(k => hashParams.delete(k));
+                  u.hash = hashParams.toString() ? `#${hashParams.toString()}` : '';
+                }
+                window.history.replaceState(null, '', u.pathname + u.search + u.hash);
+              } catch (e) {
+                // ignore
+              }
+            }
+          } catch (e) {}
+        }
       }
     } catch (err) {
       // ignore
