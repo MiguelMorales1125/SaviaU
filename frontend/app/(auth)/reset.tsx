@@ -66,7 +66,10 @@ export default function ResetPassword() {
     setRequestStatus('sending');
     setRequestMsg('Enviando...');
     try {
-      const redirectUri = (typeof window !== 'undefined' && window.location) ? window.location.origin + '/(auth)/reset' : undefined;
+      // Use the public path '/reset' for the redirectUri. Filesystem-only route groups
+      // like (auth) should not be included in the public URL — use the clean
+      // browser path so the emailed link lands on the correct client route.
+      const redirectUri = (typeof window !== 'undefined' && window.location) ? window.location.origin + '/reset' : undefined;
       const resp = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.PASSWORD_RESET), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -108,7 +111,7 @@ export default function ResetPassword() {
               <TouchableOpacity onPress={handleRequest} disabled={requestStatus === 'sending'} style={styles.primaryButton}>
                 {requestStatus === 'sending' ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Enviar correo</Text>}
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.replace('/(auth)/login')} style={styles.linkButton}>
+              <TouchableOpacity onPress={() => router.replace('/login')} style={styles.linkButton}>
                 <Text style={styles.linkText}>Volver al login</Text>
               </TouchableOpacity>
             </View>
@@ -135,7 +138,7 @@ export default function ResetPassword() {
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Actualizar contraseña</Text>}
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => router.replace('/(auth)/login')} style={styles.linkButton}>
+              <TouchableOpacity onPress={() => router.replace('/login')} style={styles.linkButton}>
                 <Text style={styles.linkText}>Volver al login</Text>
               </TouchableOpacity>
             </View>
