@@ -7,7 +7,7 @@ export const retosStyles = StyleSheet.create({
     flex: 1,
     padding: 20,
     alignItems: 'center',
-    backgroundColor: '#081012',
+    backgroundColor: '#f8f9fa',
     minHeight: '100%'
   },
   header: {
@@ -29,7 +29,7 @@ export const retosStyles = StyleSheet.create({
     width: '100%',
     maxWidth: 920,
     alignSelf: 'center',
-    backgroundColor: '#0f1314',
+    backgroundColor: '#ffffff',
     padding: 18,
     borderRadius: 12,
     shadowColor: '#000',
@@ -86,6 +86,9 @@ export const retosStyles = StyleSheet.create({
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#e9ecef'
+    ,
+    minHeight: 24,
+    justifyContent: 'center'
   },
   feedbackCorrect: {
     color: '#0f5132',

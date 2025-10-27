@@ -5,7 +5,7 @@ import { tabsStyles } from '../../styles/tabs.styles';
 import * as ImagePicker from 'expo-image-picker';
 
 export default function Perfil() {
-  const { logout, user, updateUser } = useAuth();
+  const { logout, user, updateUser, onboard } = useAuth();
 
   const [fullName, setFullName] = useState<string>(user?.fullName || '');
   const [description, setDescription] = useState<string>(user?.description || '');
@@ -62,16 +62,38 @@ export default function Perfil() {
     }
 
     // Update local user state only. Backend integration pending endpoint.
-    updateUser({
-      fullName: fullName.trim(),
-      description: description.trim(),
-      universidad: universidad.trim(),
-      carrera: carrera.trim(),
-      semestre: semestre ? Number(semestre) : undefined,
-      profileUrl: imageUri,
-    });
+    const doSave = async () => {
+      // optimistic local update
+      updateUser({
+        fullName: fullName.trim(),
+        description: description.trim(),
+        universidad: universidad.trim(),
+        carrera: carrera.trim(),
+        semestre: semestre ? Number(semestre) : undefined,
+        profileUrl: imageUri,
+      });
 
-    Alert.alert('Guardado (local)',);
+      // If the user is not onboarded and we have an onboard function, try to send to backend
+      try {
+        if (onboard && !user?.onboarded) {
+          const res = await onboard(undefined, fullName.trim(), carrera.trim(), universidad.trim(), Number(semestre) || 0);
+          if (res.success) {
+            Alert.alert('Perfil actualizado', 'Perfil completado correctamente en el servidor.');
+            return;
+          } else {
+            // show message but keep local changes
+            Alert.alert('Guardado local', res.error || 'No se pudo completar perfil en el servidor, cambios guardados localmente.');
+            return;
+          }
+        }
+        Alert.alert('Guardado', 'Cambios guardados localmente.');
+      } catch (err) {
+        console.warn('Error al guardar perfil en backend:', err);
+        Alert.alert('Guardado local', 'Ocurrió un error al guardar en el servidor. Cambios guardados localmente.');
+      }
+    };
+
+    doSave();
   };
 
   return (
@@ -149,12 +171,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   card: {
-    backgroundColor: '#070707',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#151515'
+    borderColor: '#e9ecef'
   },
   imageWrapper: {
     width: 160,
@@ -171,11 +193,11 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 999,
-    backgroundColor: '#1b1b1b',
+    backgroundColor: '#e9ecef',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  avatarPlaceholderText: { color: '#888' },
+  avatarPlaceholderText: { color: '#444' },
   pickButton: {
     marginTop: 10,
     paddingVertical: 10,
@@ -186,13 +208,13 @@ const styles = StyleSheet.create({
   },
   pickButtonText: { color: '#fff', fontWeight: '600' },
   infoWrapper: { flex: 1, paddingLeft: 8 },
-  label: { fontWeight: '700', marginTop: 8, color: '#ddd' },
-  readonly: { paddingVertical: 8, color: '#bbb' },
+  label: { fontWeight: '700', marginTop: 8, color: '#333' },
+  readonly: { paddingVertical: 8, color: '#333' },
   input: {
     borderWidth: 1,
-    borderColor: '#2b2b2b',
-    backgroundColor: '#0b0b0b',
-    color: '#fff',
+    borderColor: '#e9ecef',
+    backgroundColor: '#ffffff',
+    color: '#111',
     borderRadius: 8,
     padding: 10,
     marginTop: 6,

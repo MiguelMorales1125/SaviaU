@@ -76,7 +76,7 @@ export const indexStyles = StyleSheet.create({
     // increase top padding on small devices so header content clears the status bar
     paddingTop: isSmall ? 36 : 50,
     paddingBottom: isSmall ? 12 : 20,
-    paddingHorizontal: isSmall ? 16 : 24,
+    paddingHorizontal: isSmall ? 8: 12,
     height: isSmall ? 88 : 120,
   },
   navContainer: {
@@ -99,7 +99,7 @@ export const indexStyles = StyleSheet.create({
     // cap maximum so it doesn't grow unreasonably on very wide screens
     maxWidth: 320,
     // small left offset so the logo isn't too close to the screen edge
-    marginLeft: isSmall ? 8 : 12,
+    marginLeft: -50,
     resizeMode: 'contain',
   },
   navTitle: {
