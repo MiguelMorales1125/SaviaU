@@ -270,10 +270,20 @@ function ForgotModal({ visible, onClose, email, sendFn }: { visible: boolean; on
     setErrorMsg(undefined);
     setStatus('sending');
     try {
-      const redirectUri = (typeof window !== 'undefined' && window.location && window.location.origin)
-        ? window.location.origin + '/(auth)/reset'
-        : undefined;
-      const res = await sendFn(value, redirectUri);
+      // Force the email link to target the local dev reset page when testing locally.
+      let redirectUri: string | undefined = undefined;
+      try {
+        if (typeof window !== 'undefined' && window.location && window.location.hostname === 'localhost') {
+          redirectUri = 'http://localhost:8081/reset';
+        } else if (typeof window !== 'undefined' && window.location && window.location.origin) {
+          // Use a clean public path for the reset page
+          redirectUri = window.location.origin + '/reset';
+        }
+      } catch (e) {
+        redirectUri = undefined;
+      }
+  console.debug('ForgotModal -> sendPasswordReset', { email: value, redirectUri });
+  const res = await sendFn(value, redirectUri);
       if (res.success) {
         setStatus('sent');
         setLastSentAt(Date.now());

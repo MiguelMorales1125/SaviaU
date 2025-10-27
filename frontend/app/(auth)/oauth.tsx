@@ -6,7 +6,9 @@ import { useAuth } from '../../context/AuthContext';
 export default function OAuthFinish() {
   const router = useRouter();
   const { finishGoogle } = useAuth();
-  const [status, setStatus] = useState<'working' | 'success' | 'error' | 'idle'>('idle');
+  // Start in 'working' so we don't briefly flash the error message on mount
+  // while the redirect URL / token is being parsed.
+  const [status, setStatus] = useState<'working' | 'success' | 'error' | 'idle'>('working');
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {

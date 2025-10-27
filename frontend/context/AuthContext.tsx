@@ -79,11 +79,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const sendPasswordReset = async (email: string, redirectUri?: string) => {
     try {
-      // If no redirectUri is provided, default to the production reset page.
-      // This makes password reset emails point to the deployed frontend by default.
-  // Default to the frontend's reset route (grouped route used by Expo Router)
-  const redirect = redirectUri ?? 'https://savia-u.vercel.app/(auth)/reset';
+          // If no redirectUri is provided, prefer a localhost dev reset page when
+          // running locally. Otherwise fall back to the production frontend reset.
+          // The backend will embed this exact absolute URL in the recovery email.
+          let redirect = 'http://localhost:8081/reset';
+          try {
+            if (redirectUri) {
+              redirect = redirectUri;
+            } else if (typeof window !== 'undefined' && window.location && window.location.hostname === 'localhost') {
+              // Explicitly point to the local frontend reset page requested by the user
+              redirect = 'http://localhost:8081/reset';
+            }
+          } catch (e) {
+            // ignore and keep default
+          }
 
+      // Debug: log the exact payload we're sending so you can confirm
+      // the frontend is not sending any Vercel URL.
+      console.debug('sendPasswordReset -> POST', getApiUrl(API_CONFIG.ENDPOINTS.PASSWORD_RESET), { email, redirectUri: redirect });
       const resp = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.PASSWORD_RESET), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

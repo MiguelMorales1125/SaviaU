@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ImageBackground, Image } from 'react-native';
 import { router } from 'expo-router';
 import { getApiUrl, API_CONFIG } from '../../config/api';
 import { resetStyles as styles } from './reset.styles';
@@ -66,10 +66,19 @@ export default function ResetPassword() {
     setRequestStatus('sending');
     setRequestMsg('Enviando...');
     try {
-      // Use the public path '/reset' for the redirectUri. Filesystem-only route groups
-      // like (auth) should not be included in the public URL — use the clean
-      // browser path so the emailed link lands on the correct client route.
-      const redirectUri = (typeof window !== 'undefined' && window.location) ? window.location.origin + '/reset' : undefined;
+      // Prefer the explicit localhost reset page when running locally so the
+      // emailed link points to http://localhost:8081/reset as requested.
+      let redirectUri: string | undefined = undefined;
+      try {
+        if (typeof window !== 'undefined' && window.location && window.location.hostname === 'localhost') {
+          redirectUri = 'http://localhost:8081/reset';
+        } else if (typeof window !== 'undefined' && window.location) {
+          redirectUri = window.location.origin + '/reset';
+        }
+      } catch (e) {
+        redirectUri = undefined;
+      }
+      console.debug('reset.tsx handleRequest -> sending password reset', { email: requestEmail, redirectUri });
       const resp = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.PASSWORD_RESET), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -90,61 +99,63 @@ export default function ResetPassword() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.wrapper}>
-        <Text style={styles.title}>Recuperar contraseña</Text>
+  <ImageBackground source={require('../../assets/images/Fondo.png')} style={styles.background} resizeMode="cover" blurRadius={2}>
+      <View style={styles.centeredContainer}>
+        <View style={styles.formContainer}>
+          <Image source={require('../../assets/images/Logo-SaviaU.png')} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.title}>Recuperar contraseña</Text>
 
-        {/* Request card (always shown when there's no token) */}
-        {!accessToken && (
-          <View style={styles.card}>
-            <Text style={{ marginBottom: 8 }}>Solicita un correo para recuperar tu contraseña.</Text>
-            <TextInput
-              placeholder="Correo electrónico"
-              value={requestEmail}
-              onChangeText={setRequestEmail}
-              style={styles.input}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            {requestMsg ? <Text style={{ marginTop: 8 }}>{requestMsg}</Text> : null}
-            <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
-              <TouchableOpacity onPress={handleRequest} disabled={requestStatus === 'sending'} style={styles.primaryButton}>
-                {requestStatus === 'sending' ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Enviar correo</Text>}
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.replace('/login')} style={styles.linkButton}>
-                <Text style={styles.linkText}>Volver al login</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+          {/* Request card (always shown when there's no token) */}
+          {!accessToken && (
+            <>
+              <Text style={{ alignSelf: 'center', textAlign: 'center', color: '#444', marginBottom: 8 }}>Solicitar correo de recuperación</Text>
+              <TextInput
+                placeholder="usuario@uni.edu"
+                value={requestEmail}
+                onChangeText={setRequestEmail}
+                style={styles.input}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              {requestMsg ? <Text style={{ marginTop: 8, alignSelf: 'center', color: '#666' }}>{requestMsg}</Text> : null}
+              <View style={{ marginTop: 12, width: '100%' }}>
+                <TouchableOpacity onPress={handleRequest} disabled={requestStatus === 'sending'} style={styles.primaryButton}>
+                  {requestStatus === 'sending' ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Enviar correo</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => router.replace('/login')} style={[styles.linkButton, { alignSelf: 'center', marginTop: 12 }] }>
+                  <Text style={styles.linkText}>Volver al login</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
 
-        {/* Apply card (shown when token present) */}
-        {accessToken && (
-          <View style={styles.card}>
-            <Text style={styles.subtitle}>Establecer nueva contraseña</Text>
-            <TextInput
-              placeholder="Nueva contraseña"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              style={styles.input}
-            />
+          {/* Apply card (shown when token present) */}
+          {accessToken && (
+            <>
+              <Text style={{ alignSelf: 'center', color: '#444', marginBottom: 8 }}>Establecer nueva contraseña</Text>
+              <TextInput
+                placeholder="Nueva contraseña"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+                style={styles.input}
+              />
 
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            {message ? <Text style={styles.successText}>{message}</Text> : null}
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+              {message ? <Text style={styles.successText}>{message}</Text> : null}
 
-            <View style={styles.actionsRow}>
-              <TouchableOpacity onPress={handleApply} disabled={loading} style={styles.primaryButton}>
-                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Actualizar contraseña</Text>}
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={() => router.replace('/login')} style={styles.linkButton}>
-                <Text style={styles.linkText}>Volver al login</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+              <View style={{ width: '100%', marginTop: 12 }}>
+                <TouchableOpacity onPress={handleApply} disabled={loading} style={styles.primaryButton}>
+                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Actualizar contraseña</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => router.replace('/login')} style={[styles.linkButton, { alignSelf: 'center', marginTop: 12 }] }>
+                  <Text style={styles.linkText}>Volver al login</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </View>
       </View>
-    </View>
+    </ImageBackground>
   );
 }
