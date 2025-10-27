@@ -8,6 +8,8 @@ import org.uniproject.SaviaU.config.SupabaseClients;
 import org.uniproject.SaviaU.dto.OnboardRequest;
 import reactor.core.publisher.Mono;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -53,5 +55,60 @@ public class OnboardingService {
                             .onErrorResume(WebClientResponseException.class, ex -> Mono.error(new RuntimeException("No se pudo actualizar el perfil")));
                 });
     }
-}
 
+    public Mono<Map<String, Object>> profileStatus(String accessToken) {
+        return clients.buildUserAuthClient(accessToken)
+                .get()
+                .uri("/user")
+                .retrieve()
+                .bodyToMono(Map.class)
+                .flatMap(userResp -> {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> user = (Map<String, Object>) userResp;
+                    String id = (String) user.get("id");
+                    String email = (String) user.get("email");
+                    if (id == null) return Mono.error(new RuntimeException("Token inválido"));
+
+                    return clients.getDbAdmin().get()
+                            .uri(uriBuilder -> uriBuilder
+                                    .path("/usuarios")
+                                    .queryParam("select", "id,full_name,carrera,universidad,semestre")
+                                    .queryParam("id", "eq." + id)
+                                    .build())
+                            .retrieve()
+                            .bodyToFlux(Map.class)
+                            .collectList()
+                            .map(list -> {
+                                if (list.isEmpty()) {
+                                    return Map.of(
+                                            "userId", id,
+                                            "email", email,
+                                            "exists", false,
+                                            "complete", false,
+                                            "isNewUser", true,
+                                            "missingFields", List.of("full_name", "carrera", "universidad", "semestre")
+                                    );
+                                }
+                                Map row = list.get(0);
+                                List<String> missing = new java.util.ArrayList<>();
+                                Object fn = row.get("full_name");
+                                Object ca = row.get("carrera");
+                                Object un = row.get("universidad");
+                                Object se = row.get("semestre");
+                                if (fn == null || String.valueOf(fn).isBlank()) missing.add("full_name");
+                                if (ca == null || String.valueOf(ca).isBlank()) missing.add("carrera");
+                                if (un == null || String.valueOf(un).isBlank()) missing.add("universidad");
+                                if (se == null) missing.add("semestre");
+                                boolean complete = missing.isEmpty();
+                                Map<String, Object> out = new HashMap<>();
+                                out.put("userId", id);
+                                out.put("email", email);
+                                out.put("exists", true);
+                                out.put("complete", complete);
+                                out.put("isNewUser", false);
+                                out.put("missingFields", missing);
+                                return out;
+                            });
+                });
+    }
+}

@@ -163,4 +163,14 @@ public class SupabaseController {
                 .map(ResponseEntity::ok)
                 .onErrorReturn(ResponseEntity.status(404).build());
     }
+
+    /**
+     * Estado del perfil (para decidir si pedir datos faltantes solo la primera vez)
+     */
+    @GetMapping("/auth/profile/status")
+    public Mono<ResponseEntity<Map<String, Object>>> profileStatus(@RequestParam String accessToken) {
+        return onboardingService.profileStatus(accessToken)
+                .map(ResponseEntity::ok)
+                .onErrorReturn(ResponseEntity.status(400).body(Map.of("message", "No se pudo obtener el estado de perfil")));
+    }
 }
