@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, TouchableOpacity, Platform, Linking } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, Platform, Linking, Image } from 'react-native';
 import { useRouter } from 'expo-router';
+import Head from 'expo-router/head';
 import { useAuth } from '../../context/AuthContext';
+import { getApiUrl } from '../../config/api';
 
 export default function OAuthFinish() {
   const router = useRouter();
@@ -15,6 +17,31 @@ export default function OAuthFinish() {
     let timeoutHandle: number | null = null;
     let finished = false;
     let subscription: { remove: () => void } | null = null;
+
+    // 1) Strip tokens from URL immediately on mount (web) while caching them in sessionStorage
+    try {
+      if (typeof window !== 'undefined' && window.location) {
+        const u = new URL(window.location.href);
+        // Prefer hash first as most providers return it
+        const hash = (u.hash || '').replace(/^#/, '');
+        const hashParams = new URLSearchParams(hash);
+        const qParams = new URLSearchParams(u.search);
+        const a = hashParams.get('access_token') || qParams.get('access_token') || hashParams.get('accessToken') || qParams.get('accessToken') || hashParams.get('token') || qParams.get('token');
+        const r = hashParams.get('refresh_token') || qParams.get('refresh_token') || '';
+        if (a || r) {
+          try {
+            if (a) window.sessionStorage?.setItem('oauth_access_token', a);
+            if (r) window.sessionStorage?.setItem('oauth_refresh_token', r);
+          } catch (e) {}
+
+          // Remove sensitive params from both places and replace URL
+          ['access_token','accessToken','token','refresh_token','id_token','expires_in','token_type','scope'].forEach(k => { hashParams.delete(k); qParams.delete(k); });
+          u.hash = hashParams.toString() ? `#${hashParams.toString()}` : '';
+          u.search = qParams.toString() ? `?${qParams.toString()}` : '';
+          try { window.history.replaceState(null, '', u.pathname + u.search + u.hash); } catch (e) {}
+        }
+      }
+    } catch (e) { /* ignore */ }
 
     const extractParamsFromUrl = (urlStr: string | null) => {
       if (!urlStr) return null;
@@ -32,7 +59,7 @@ export default function OAuthFinish() {
 
     const parseAndFinish = async (incomingUrl?: string) => {
       try {
-        let params = null;
+  let params = null;
 
         console.debug('parseAndFinish called, incomingUrl=', incomingUrl);
 
@@ -43,13 +70,27 @@ export default function OAuthFinish() {
           params = new URLSearchParams(hash || window.location.search);
         }
 
+        // First try URL params; if absent, try sessionStorage (set in early strip)
+        if (!params || (!params.get('access_token') && !params.get('accessToken') && !params.get('token'))) {
+          try {
+            const stA = typeof window !== 'undefined' ? window.sessionStorage?.getItem('oauth_access_token') : undefined;
+            const stR = typeof window !== 'undefined' ? window.sessionStorage?.getItem('oauth_refresh_token') : undefined;
+            if (stA || stR) {
+              const p = new URLSearchParams();
+              if (stA) p.set('access_token', stA);
+              if (stR) p.set('refresh_token', stR);
+              params = p;
+            }
+          } catch (e) {}
+        }
+
         if (!params) {
-          console.debug('No params found in URL');
+          console.debug('No params found in URL or storage');
           return false;
         }
 
-        const accessToken = params.get('access_token') || params.get('accessToken') || params.get('token');
-        const refreshToken = params.get('refresh_token');
+  const accessToken = params.get('access_token') || params.get('accessToken') || params.get('token');
+  const refreshToken = params.get('refresh_token');
         console.debug('Extracted access_token:', accessToken, 'refresh_token:', refreshToken);
 
         if (!accessToken) return false;
@@ -61,19 +102,29 @@ export default function OAuthFinish() {
               const u = new URL(window.location.href);
               // remove token-like params from search
               const searchParams = new URLSearchParams(u.search);
-              ['access_token', 'accessToken', 'token', 'refresh_token'].forEach(k => searchParams.delete(k));
+              ['access_token', 'accessToken', 'token', 'refresh_token', 'id_token', 'expires_in', 'token_type', 'scope']
+                .forEach(k => searchParams.delete(k));
               u.search = searchParams.toString() ? `?${searchParams.toString()}` : '';
               // remove token-like params from hash
               const hash = (u.hash || '').replace(/^#/, '');
               if (hash) {
                 const hashParams = new URLSearchParams(hash);
-                ['access_token', 'accessToken', 'token', 'refresh_token'].forEach(k => hashParams.delete(k));
+                ['access_token', 'accessToken', 'token', 'refresh_token', 'id_token', 'expires_in', 'token_type', 'scope']
+                  .forEach(k => hashParams.delete(k));
                 u.hash = hashParams.toString() ? `#${hashParams.toString()}` : '';
               }
               window.history.replaceState(null, '', u.pathname + u.search + u.hash);
             } catch (e) {
               // ignore any url/replace errors
             }
+          }
+        } catch (e) {}
+
+        // Clear cached tokens from sessionStorage once captured
+        try {
+          if (typeof window !== 'undefined') {
+            window.sessionStorage?.removeItem('oauth_access_token');
+            window.sessionStorage?.removeItem('oauth_refresh_token');
           }
         } catch (e) {}
         setStatus('working');
@@ -89,8 +140,20 @@ export default function OAuthFinish() {
             res.data?.user?.fullName ||
             (typeof window !== 'undefined' && window.localStorage && window.localStorage.getItem('onboarded') === 'true')
           );
+          // Extra check: ask backend profile status to detect usuarios row and avoid showing onboarding/diagnostic for returning users
+          let remoteOnboarded = false;
+          try {
+            const url = getApiUrl(`/api/auth/profile/status?accessToken=${encodeURIComponent(accessToken)}`);
+            const r = await fetch(url);
+            if (r.ok) {
+              const j = await r.json();
+              remoteOnboarded = Boolean(j?.exists || j?.complete || (j?.isNewUser === false));
+            }
+          } catch (e) {
+            // ignore network errors here, we'll fall back to local rules
+          }
           setTimeout(() => {
-            if (!isOnboarded) {
+            if (!(isOnboarded || remoteOnboarded)) {
               router.replace('/(auth)/onboard');
             } else {
               router.replace('/(tabs)/home');
@@ -217,21 +280,30 @@ export default function OAuthFinish() {
   // inspect the cause instead of being silently redirected.
   // (Previously we auto-redirected which made debugging difficult.)
 
+  const seoMessage = status === 'success'
+    ? (msg || 'Inicio de sesión con Google completado')
+    : status === 'working'
+      ? 'Finalizando login con Google...'
+      : (msg || 'No se encontró el token de autenticación.');
+
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-      {/* Always show a neutral waiting state while finishing Google login.
-          If success, show confirmation; if error, auto-redirect to login silently. */}
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: '#ffffff' }}>
+      <Head>
+        <title>Conectando con Google • SaviaU</title>
+        <meta name="description" content={seoMessage} />
+      </Head>
       {status === 'success' ? (
-        <Text>{msg}</Text>
+        <>
+          <Image source={require('../../assets/images/SaviaU-Logo.png')} style={{ width: 160, height: 160, marginBottom: 8 }} resizeMode="contain" />
+        </>
       ) : status === 'working' ? (
         <>
-          <ActivityIndicator size="large" />
-          <Text style={{ marginTop: 12 }}>Finalizando login con Google...</Text>
+          <Image source={require('../../assets/images/SaviaU-Logo.png')} style={{ width: 160, height: 160, marginBottom: 12 }} resizeMode="contain" />
+          <ActivityIndicator size="large" color="#198754" />
         </>
       ) : (
-        // status === 'error' or 'idle'
         <>
-          <Text style={{ color: '#f66', fontWeight: '700', textAlign: 'center', marginBottom: 12 }}>{msg || 'No se encontró el token de autenticación.'}</Text>
+          <Image source={require('../../assets/images/SaviaU-Logo.png')} style={{ width: 160, height: 160, marginBottom: 12 }} resizeMode="contain" />
           <TouchableOpacity onPress={() => router.replace('/(auth)/login')} style={{ backgroundColor: '#198754', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}>
             <Text style={{ color: '#fff', fontWeight: '700' }}>Ir al login</Text>
           </TouchableOpacity>

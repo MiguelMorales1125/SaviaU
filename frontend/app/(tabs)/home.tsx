@@ -5,7 +5,7 @@ export default function HomeScreen() {
   return (
     <View style={tabsStyles.homeContainer}>
       <Image
-        source={require('../../assets/images/SaviaU-Logo.png')}
+        source={require('../../assets/images/Logo-SaviaU.png')}
         style={tabsStyles.homeLogo}
         resizeMode="contain"
       />

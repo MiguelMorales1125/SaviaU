@@ -49,8 +49,15 @@ function AuthGate() {
       if (!path && (router as any).pathname) path = (router as any).pathname;
     } catch (e) {}
 
-    // If logged in and diagnostic not completed, and we're not already on diagnostic or auth pages, redirect.
-    if (user && !diagnosticCompleted && !path.includes('/diagnostic') && !path.includes('/(auth)')) {
+    // Si está logueado y NO ha completado diagnóstico, redirigir a /diagnostic
+    // excepto cuando ya estamos en /diagnostic, en rutas de auth o en la pantalla de perfil.
+    if (
+      user &&
+      !diagnosticCompleted &&
+      !path.includes('/diagnostic') &&
+      !path.includes('/(auth)') &&
+      !path.includes('/(tabs)/perfil')
+    ) {
       router.replace('/diagnostic');
     }
   }, [user, diagnosticCompleted, initialLoading]);

@@ -245,7 +245,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
         // Merge returned user and persist diagnosticCompleted if present
         setUser(loginData.user);
+        // Política solicitada: si el usuario ya está registrado e inicia sesión de nuevo,
+        // no mostrar diagnóstico. Marcamos el flag como completado para evitar redirecciones.
         if (loginData?.user?.diagnosticCompleted) {
+          setDiagnosticCompleted(true);
+          try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('diagnosticCompleted', 'true'); } catch(e) {}
+        } else {
           setDiagnosticCompleted(true);
           try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('diagnosticCompleted', 'true'); } catch(e) {}
         }
@@ -279,7 +284,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (resp.ok) {
         const data = await resp.json();
         // backend returns LoginResponse-like object
-        if (data?.user) {
+  if (data?.user) {
           // Determine whether the backend considers the user onboarded. Some
           // deployments return `user.onboarded`, others include profile fields
           // like `fullName`. Treat presence of a fullName as evidence of
@@ -293,7 +298,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
             else window.localStorage.removeItem('onboarded');
           } } catch(e) {}
           // if backend indicates diagnostic completed in returned user, persist it
-          if (data.user?.diagnosticCompleted) {
+          // Para usuarios ya registrados que vuelven a iniciar sesión con Google,
+          // evita mostrar diagnóstico tratando el flag como completado.
+          if (data.user?.diagnosticCompleted || mergedUser.onboarded) {
+            setDiagnosticCompleted(true);
+            try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('diagnosticCompleted', 'true'); } catch(e) {}
+          } else {
             setDiagnosticCompleted(true);
             try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('diagnosticCompleted', 'true'); } catch(e) {}
           }
