@@ -30,5 +30,11 @@ public class ProfileController {
                 .map(ResponseEntity::ok)
                 .onErrorReturn(ResponseEntity.status(400).body(Map.of("message", "No se pudo obtener el estado de perfil")));
     }
-}
 
+    @GetMapping("/profile")
+    public Mono<ResponseEntity<Map<String, Object>>> getProfile(@RequestParam String accessToken) {
+        return onboardingService.getProfile(accessToken)
+                .map(ResponseEntity::ok)
+                .onErrorReturn(ResponseEntity.status(400).body(Map.of("message", "No se pudo obtener el perfil")));
+    }
+}

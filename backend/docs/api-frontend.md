@@ -27,8 +27,6 @@ Estructuras de datos
 POST /api/auth/register
 Body (RegisterRequest)
 
-Ejemplo (TypeScript fetch)
-
 ```ts
 const res = await fetch('http://localhost:8080/api/auth/register', {
   method: 'POST',
@@ -132,8 +130,8 @@ const res = await fetch('http://localhost:8080/api/auth/password/apply', {
 if (!res.ok) throw new Error('No se pudo actualizar la contraseña');
 ```
 
-7) Completar perfil (onboarding)
-Tras login (por Google o email), puedes completar datos del perfil con el access_token de Supabase (no confundir con appToken):
+7) Completar/actualizar perfil (onboarding)
+Tras login (por Google o email), puedes completar o actualizar datos del perfil con el access_token de Supabase (no confundir con appToken):
 
 POST /api/auth/onboard
 Body (OnboardRequest)
@@ -153,10 +151,54 @@ const res = await fetch('http://localhost:8080/api/auth/onboard', {
 if (!res.ok) throw new Error('No se pudo completar el perfil');
 ```
 
+7.1) Obtener perfil guardado (para precargar en el front)
+GET /api/auth/profile?accessToken=...  → devuelve el perfil persistido en la tabla `usuarios`.
+
+Respuesta ejemplo:
+```json
+{
+  "userId": "uuid-del-usuario",
+  "email": "usuario@example.com",
+  "exists": true,
+  "profile": {
+    "fullName": "Nombre Apellido",
+    "carrera": "Ingeniería",
+    "universidad": "Mi Universidad",
+    "semestre": 3
+  }
+}
+```
+
+Uso desde el frontend:
+```ts
+const res = await fetch('http://localhost:8080/api/auth/profile?accessToken=' + encodeURIComponent(access_token));
+if (!res.ok) throw new Error('No se pudo obtener el perfil');
+const data = await res.json();
+if (data.exists && data.profile) {
+  // precarga los campos
+}
+```
+
+7.2) Estado del perfil (saber si falta algo por completar)
+GET /api/auth/profile/status?accessToken=...
+
+Respuesta ejemplo (incompleto):
+```json
+{
+  "userId": "uuid-del-usuario",
+  "email": "usuario@example.com",
+  "exists": true,
+  "complete": false,
+  "isNewUser": false,
+  "missingFields": ["universidad"]
+}
+```
+
 Notas y buenas prácticas
 - redirectTo y redirectUri deben ser URLs absolutas y deben estar listadas en "Allowed Redirect URLs" en Supabase.
 - Usa HTTPS en producción.
 - Guarda tokens de forma segura (ej. cookies httpOnly para tu appToken si controlas un backend BFF; localStorage solo si aceptas su modelo de riesgo).
+- Evita loggear el access_token y considera no incluirlo en URLs en producción (usa POST o Authorization header si cambias el contrato).
 - Maneja errores: verifica `res.ok` y muestra mensajes claros.
 - CORS: el backend permite orígenes con `@CrossOrigin("*")` para desarrollo. Configura políticas más estrictas en producción.
 - Si ves "Whitelabel Error Page", casi siempre es porque se navegó a una ruta del backend que no tiene vista o la URL de retorno no está permitida en Supabase.
@@ -172,4 +214,3 @@ export function parseSupabaseHash(): { access_token?: string; refresh_token?: st
   return result as any;
 }
 ```
-

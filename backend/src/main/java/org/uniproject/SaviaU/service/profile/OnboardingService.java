@@ -111,4 +111,53 @@ public class OnboardingService {
                             });
                 });
     }
+
+    // Nuevo: obtener el perfil guardado del usuario
+    public Mono<Map<String, Object>> getProfile(String accessToken) {
+        return clients.buildUserAuthClient(accessToken)
+                .get()
+                .uri("/user")
+                .retrieve()
+                .bodyToMono(Map.class)
+                .flatMap(userResp -> {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> user = (Map<String, Object>) userResp;
+                    String id = (String) user.get("id");
+                    String email = (String) user.get("email");
+                    if (id == null) return Mono.error(new RuntimeException("Token inválido"));
+
+                    return clients.getDbAdmin().get()
+                            .uri(uriBuilder -> uriBuilder
+                                    .path("/usuarios")
+                                    .queryParam("select", "id,full_name,carrera,universidad,semestre")
+                                    .queryParam("id", "eq." + id)
+                                    .build())
+                            .retrieve()
+                            .bodyToFlux(Map.class)
+                            .collectList()
+                            .map(list -> {
+                                Map<String, Object> base = new HashMap<>();
+                                base.put("userId", id);
+                                base.put("email", email);
+                                if (list.isEmpty()) {
+                                    base.put("exists", false);
+                                    base.put("profile", null);
+                                    return base;
+                                }
+                                Map row = list.get(0);
+                                Map<String, Object> profile = new HashMap<>();
+                                Object fn = row.get("full_name");
+                                Object ca = row.get("carrera");
+                                Object un = row.get("universidad");
+                                Object se = row.get("semestre");
+                                profile.put("fullName", fn == null ? null : String.valueOf(fn));
+                                profile.put("carrera", ca == null ? null : String.valueOf(ca));
+                                profile.put("universidad", un == null ? null : String.valueOf(un));
+                                profile.put("semestre", se);
+                                base.put("exists", true);
+                                base.put("profile", profile);
+                                return base;
+                            });
+                });
+    }
 }
