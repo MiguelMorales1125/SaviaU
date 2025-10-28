@@ -15,5 +15,7 @@ public class SupabaseProperties {
     private String anonKey;
     private String jwtSecret;
     private String serviceRoleKey;
+    // Nuevo: bucket para fotos de perfil (por defecto "profile-photos" si no se especifica)
+    private String profileBucket = "profile-photos";
 
 }

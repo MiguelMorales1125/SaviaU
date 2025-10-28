@@ -14,6 +14,7 @@ Estructuras de datos
 - PasswordResetRequest: { email: string, redirectUri?: string }
 - PasswordApplyRequest: { accessToken: string, newPassword: string }
 - OnboardRequest: { accessToken: string, fullName: string, carrera: string, universidad: string, semestre: number }
+- ProfileUpdateRequest: { accessToken: string; alias?: string; carrera?: string; semestre?: number; intereses?: string[]; avatarKey?: string }
 - LoginResponse: {
   accessToken?: string,
   refreshToken?: string,
@@ -194,14 +195,83 @@ Respuesta ejemplo (incompleto):
 }
 ```
 
-Notas y buenas prácticas
-- redirectTo y redirectUri deben ser URLs absolutas y deben estar listadas en "Allowed Redirect URLs" en Supabase.
-- Usa HTTPS en producción.
-- Guarda tokens de forma segura (ej. cookies httpOnly para tu appToken si controlas un backend BFF; localStorage solo si aceptas su modelo de riesgo).
-- Evita loggear el access_token y considera no incluirlo en URLs en producción (usa POST o Authorization header si cambias el contrato).
-- Maneja errores: verifica `res.ok` y muestra mensajes claros.
-- CORS: el backend permite orígenes con `@CrossOrigin("*")` para desarrollo. Configura políticas más estrictas en producción.
-- Si ves "Whitelabel Error Page", casi siempre es porque se navegó a una ruta del backend que no tiene vista o la URL de retorno no está permitida en Supabase.
+8) Perfil del estudiante (edición parcial, foto/avatar)
+
+8.1) Obtener perfil (incluye alias, intereses, foto o avatar)
+GET /api/profile?accessToken=...
+
+Respuesta ejemplo:
+```json
+{
+  "userId": "uuid-del-usuario",
+  "email": "usuario@example.com",
+  "exists": true,
+  "profile": {
+    "fullName": "Nombre Apellido",
+    "carrera": "Ingeniería",
+    "universidad": "Mi Universidad",
+    "semestre": 3,
+    "alias": "user_123",
+    "intereses": ["reciclaje", "movilidad"],
+    "photoUrl": "https://<supabase>/storage/v1/object/public/profile-photos/users/<id>/profile.jpg",
+    "avatarKey": "leaf-3",
+    "updatedAt": "2025-01-01T10:00:00Z"
+  }
+}
+```
+
+8.2) Actualización parcial de perfil
+PATCH /api/profile
+Body (ProfileUpdateRequest)
+
+Reglas de validación:
+- accessToken: requerido
+- alias: 3..30 caracteres, regex: ^[A-Za-z0-9_.-]+$
+- carrera: máx 100 chars
+- semestre: [1..20]
+- intereses: array de strings, cada uno 1..30 chars
+- avatarKey: opcional; si se envía, se anula la photoUrl (se prioriza avatar)
+
+Ejemplo:
+```ts
+const res = await fetch('http://localhost:8080/api/profile', {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ accessToken, alias: 'user_123', intereses: ['reciclaje','movilidad'] }),
+});
+if (!res.ok) {
+  const err = await res.json();
+  // { message: 'Validación fallida', errors: [{field, message}, ...] }
+}
+```
+
+8.3) Subir foto de perfil (o elegir avatar)
+POST /api/profile/photo (multipart/form-data)
+Campos:
+- file: imagen JPEG/PNG/WEBP (máx 2MB)
+- accessToken: query param
+
+Ejemplo con fetch (browser):
+```ts
+const form = new FormData();
+form.append('file', fileInput.files![0]);
+const res = await fetch('http://localhost:8080/api/profile/photo?accessToken=' + encodeURIComponent(accessToken), {
+  method: 'POST',
+  body: form,
+});
+if (!res.ok) {
+  const err = await res.json();
+  // { message: 'Tipo de archivo no permitido' | 'La foto supera el tamaño máximo de 2MB' }
+}
+const data = await res.json();
+// data.photoUrl actualizado
+```
+
+Notas
+- Confirmación de salida: el backend expone `updatedAt` en el perfil. El frontend puede usarlo para detectar cambios locales no guardados y mostrar el diálogo de confirmación.
+- Selección de avatar: enviar `avatarKey` por PATCH. El backend limpia automáticamente `photoUrl` para priorizar el avatar.
+- Al subir foto, el backend guarda en Supabase Storage (bucket público `profile-photos`) y actualiza `photoUrl`; además limpia `avatarKey`.
+- CORS abierto con `@CrossOrigin("*")` en desarrollo. Ajustar en producción.
 
 Apéndice: helper para parsear el hash de Supabase
 

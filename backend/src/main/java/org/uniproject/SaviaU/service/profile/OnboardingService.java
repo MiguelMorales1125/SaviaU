@@ -129,7 +129,7 @@ public class OnboardingService {
                     return clients.getDbAdmin().get()
                             .uri(uriBuilder -> uriBuilder
                                     .path("/usuarios")
-                                    .queryParam("select", "id,full_name,carrera,universidad,semestre")
+                                    .queryParam("select", "id,full_name,carrera,universidad,semestre,alias,intereses,photo_url,avatar_key,updated_at")
                                     .queryParam("id", "eq." + id)
                                     .build())
                             .retrieve()
@@ -146,14 +146,15 @@ public class OnboardingService {
                                 }
                                 Map row = list.get(0);
                                 Map<String, Object> profile = new HashMap<>();
-                                Object fn = row.get("full_name");
-                                Object ca = row.get("carrera");
-                                Object un = row.get("universidad");
-                                Object se = row.get("semestre");
-                                profile.put("fullName", fn == null ? null : String.valueOf(fn));
-                                profile.put("carrera", ca == null ? null : String.valueOf(ca));
-                                profile.put("universidad", un == null ? null : String.valueOf(un));
-                                profile.put("semestre", se);
+                                profile.put("fullName", row.get("full_name"));
+                                profile.put("carrera", row.get("carrera"));
+                                profile.put("universidad", row.get("universidad"));
+                                profile.put("semestre", row.get("semestre"));
+                                profile.put("alias", row.get("alias"));
+                                profile.put("intereses", row.get("intereses"));
+                                profile.put("photoUrl", row.get("photo_url"));
+                                profile.put("avatarKey", row.get("avatar_key"));
+                                profile.put("updatedAt", row.get("updated_at"));
                                 base.put("exists", true);
                                 base.put("profile", profile);
                                 return base;

@@ -14,6 +14,7 @@ public class SupabaseClients {
     private final WebClient authPublic;
     private final WebClient dbAdmin;
     private final WebClient authAdmin;
+    private final WebClient storageAdmin;
 
     public SupabaseClients(@Qualifier("supabaseProperties") SupabaseProperties props) {
         this.props = props;
@@ -40,6 +41,11 @@ public class SupabaseClients {
                 .defaultHeader("apikey", props.getServiceRoleKey())
                 .defaultHeader("Authorization", "Bearer " + props.getServiceRoleKey())
                 .build();
+        this.storageAdmin = WebClient.builder()
+                .baseUrl(props.getUrl() + "/storage/v1")
+                .defaultHeader("apikey", props.getServiceRoleKey())
+                .defaultHeader("Authorization", "Bearer " + props.getServiceRoleKey())
+                .build();
     }
 
     public SupabaseProperties getProps() { return props; }
@@ -47,6 +53,7 @@ public class SupabaseClients {
     public WebClient getAuthPublic() { return authPublic; }
     public WebClient getDbAdmin() { return dbAdmin; }
     public WebClient getAuthAdmin() { return authAdmin; }
+    public WebClient getStorageAdmin() { return storageAdmin; }
 
     public WebClient buildUserAuthClient(String accessToken) {
         return WebClient.builder()
