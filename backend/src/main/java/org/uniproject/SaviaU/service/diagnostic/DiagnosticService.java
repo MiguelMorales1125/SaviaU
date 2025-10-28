@@ -14,12 +14,16 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import org.uniproject.SaviaU.service.progress.ProgressService;
+import org.uniproject.SaviaU.dto.AwardResultDto;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class DiagnosticService {
 
     private final SupabaseClients clients;
+    private final ProgressService progressService;
 
     public Mono<List<DiagnosticQuestionDto>> getQuestions() {
         Mono<List<Map>> qMono = clients.getDbAdmin().get()
@@ -204,7 +208,18 @@ public class DiagnosticService {
                             .bodyToMono(String.class)
                             .onErrorResume(WebClientResponseException.class, ex -> Mono.just(""));
 
-                    return Mono.when(insertAnswers, updateUser).thenReturn(
+                    Map<String, Object> metadata = new HashMap<>();
+                    metadata.put("attemptId", attemptId);
+                    metadata.put("score", scoreFinal);
+                    metadata.put("level", levelFinal);
+                    metadata.put("totalQuestions", totalFinal);
+                    metadata.put("correct", correctFinal);
+
+                    Mono<AwardResultDto> record = progressService
+                            .recordActivityForUserId(userIdFinal, "DIAGNOSTIC_COMPLETED", metadata)
+                            .onErrorResume(ex -> Mono.just(AwardResultDto.builder().awarded(List.of()).build()));
+
+                    return Mono.when(insertAnswers, updateUser, record).thenReturn(
                             DiagnosticResultDto.builder()
                                     .userId(userIdFinal)
                                     .scorePercent(scoreFinal)
@@ -320,4 +335,3 @@ public class DiagnosticService {
                 .collect(Collectors.toList());
     }
 }
-

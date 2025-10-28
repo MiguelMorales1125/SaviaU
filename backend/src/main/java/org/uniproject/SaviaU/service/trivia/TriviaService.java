@@ -12,12 +12,15 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import org.uniproject.SaviaU.service.progress.ProgressService;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class TriviaService {
 
     private final SupabaseClients clients;
+    private final ProgressService progressService;
 
     private Mono<Map> getUserFromToken(String accessToken) {
         return clients.buildUserAuthClient(accessToken)
@@ -313,19 +316,30 @@ public class TriviaService {
                             .bodyToMono(String.class)
                             .onErrorResume(WebClientResponseException.class, ex -> Mono.just(""));
 
-                    return updateAttempt.thenReturn(
-                            TriviaResultDto.builder()
-                                    .attemptId((String) attempt.get("id"))
-                                    .userId(userId)
-                                    .setId(setId)
-                                    .scorePercent(score)
-                                    .totalCorrect(correct)
-                                    .totalQuestions(totalQuestions)
-                                    .completedAt(now)
-                                    .topicBreakdown(topicCorrect)
-                                    .recommendedTopics(recommendTopics(topicCorrect))
-                                    .build()
-                    );
+                    TriviaResultDto result = TriviaResultDto.builder()
+                            .attemptId((String) attempt.get("id"))
+                            .userId(userId)
+                            .setId(setId)
+                            .scorePercent(score)
+                            .totalCorrect(correct)
+                            .totalQuestions(totalQuestions)
+                            .completedAt(now)
+                            .topicBreakdown(topicCorrect)
+                            .recommendedTopics(recommendTopics(topicCorrect))
+                            .build();
+
+                    Map<String, Object> metadata = new HashMap<>();
+                    metadata.put("attemptId", request.getAttemptId());
+                    metadata.put("setId", setId);
+                    metadata.put("score", score);
+                    metadata.put("totalQuestions", totalQuestions);
+                    metadata.put("correct", correct);
+
+                    Mono<AwardResultDto> record = progressService
+                            .recordActivityForUserId(userId, "TRIVIA_COMPLETED", metadata)
+                            .onErrorResume(ex -> Mono.just(AwardResultDto.builder().awarded(List.of()).build()));
+
+                    return updateAttempt.then(record).thenReturn(result);
                 });
             });
         });
@@ -482,4 +496,3 @@ public class TriviaService {
                 .collect(Collectors.toList());
     }
 }
-
