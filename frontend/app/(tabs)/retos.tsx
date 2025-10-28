@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator, Alert, useWindowDimensions, type ImageSourcePropType } from 'react-native';
 import { retosStyles as styles } from '../../styles/retos.styles';
 // Modo frontend-only: comentar servicios/BD
 // import { triviaApi, TriviaQuestion, TriviaSet } from '../../services/trivia';
@@ -498,6 +498,8 @@ type AnswerState = {
 
 export default function Retos() {
   // const { supabaseAccessToken } = useAuth(); // Frontend-only: no requerido
+  const { width } = useWindowDimensions();
+  const isWide = width >= 1024; // diseño de 2 columnas en pantallas grandes
 
   // Carga de sets y selección
   const [loadingSets, setLoadingSets] = useState(true);
@@ -576,7 +578,8 @@ export default function Retos() {
         selectedOptionId: optionId,
         correctOptionId: localCorrectId,
         correct: isOk,
-        explanation: isOk ? '¡Correcto!' : 'Respuesta incorrecta',
+        // Guardamos la explicación detallada de la pregunta para mostrarla bajo la pregunta
+        explanation: currentQuestion.explanation || (isOk ? '¡Correcto!' : 'Respuesta incorrecta'),
       });
       if (isOk) setScore((s) => s + 1);
       return;
@@ -603,7 +606,7 @@ export default function Retos() {
     return (
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.cardRow}>
-          <View style={styles.cardLeft}>
+          <View style={[styles.cardLeft, styles.cardList]}>
             <Text style={styles.question}>Retos disponibles</Text>
             {loadingSets ? (
               <ActivityIndicator />
@@ -614,7 +617,7 @@ export default function Retos() {
             ) : (
               <View style={{ gap: 10 }}>
                 {sets.map((s) => (
-                  <TouchableOpacity key={s.id} style={[styles.optionBtn, styles.option]} onPress={() => loadQuestions(s)}>
+                  <TouchableOpacity key={s.id} style={[styles.optionBtn, styles.optionList]} onPress={() => loadQuestions(s)}>
                     <Text style={styles.optionText}>{s.title}</Text>
                     {s.description ? (
                       <Text style={{ color: '#6c757d', marginTop: 4 }}>{s.description}</Text>
@@ -680,10 +683,22 @@ export default function Retos() {
   const isWrong = (optId: string) => !!answerState.selectedOptionId && isSelected(optId) && answerState.correct === false;
   // util: estilos para opciones según estado de respuesta
 
+  // Imagen lateral por set usando archivos locales.
+ 
+  const sideImageBySet: Record<string, ImageSourcePropType> = {
+    'clima-1': require('../../assets/images/test1.png'),
+    'renovables-1': require('../../assets/images/test2.png'),
+    'biodiversidad-1': require('../../assets/images/Fondo.png'),
+    'residuos-1': require('../../assets/images/Fondo.png'),
+    'agua-1': require('../../assets/images/mundo.png'),
+    'economia-1': require('../../assets/images/Fondo.png'),
+  };
+  const sideImage: ImageSourcePropType | undefined = selectedSet ? sideImageBySet[selectedSet.id] : undefined;
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.cardRow}>
-        <View style={styles.cardLeft}>
+      <View style={[styles.cardRow, isWide && { flexDirection: 'row', alignItems: 'stretch' }]}>
+  <View style={[styles.cardLeft, isWide && { width: '60%', borderRightWidth: 0 }]}>
           <View style={styles.band} />
           <Text style={styles.cardTitle}>{selectedSet.title}</Text>
           {/* Barra de progreso */}
@@ -723,12 +738,22 @@ export default function Retos() {
           ) : null}
 
           {answerState.selectedOptionId ? (
-            <View style={styles.feedbackBox}>
-              {answerState.correct ? (
-                <Text style={styles.feedbackCorrect}>{answerState.explanation || '¡Correcto!'}</Text>
-              ) : (
-                <Text style={styles.feedbackWrong}>{answerState.explanation || 'Respuesta incorrecta'}</Text>
+            <View style={[styles.feedbackBox, answerState.correct ? styles.feedbackSuccess : styles.feedbackDanger]}>
+              <Text style={answerState.correct ? styles.feedbackCorrect : styles.feedbackWrong}>
+                {answerState.correct ? '¡Correcto!' : 'Respuesta incorrecta'}
+              </Text>
+              {!!currentQuestion?.explanation && (
+                <Text style={[styles.feedbackBody, { color: answerState.correct ? '#0f5132' : '#842029' }]}>
+                  {currentQuestion.explanation}
+                </Text>
               )}
+            </View>
+          ) : null}
+
+          {/* Banner de insignia desbloqueada (similar al diseño de referencia) */}
+          {answerState.correct && qIndex === 0 ? (
+            <View style={styles.badgeBanner}>
+              <Text style={styles.badgeBannerText}>🏆 ¡INSIGNIA DESBLOQUEADA! - Primer desafío</Text>
             </View>
           ) : null}
 
@@ -757,7 +782,19 @@ export default function Retos() {
             )}
           </View>
         </View>
+        {isWide ? (
+          <View style={[styles.cardRight, { display: 'flex', width: '40%', padding: 12, justifyContent: 'center', alignItems: 'center' }]}>
+            {sideImage ? (
+              <Image
+                source={sideImage}
+                style={{ width: '100%', height: 520, borderRadius: 8 }}
+                resizeMode="cover"
+              />
+            ) : null}
+          </View>
+        ) : null}
       </View>
+      {/* Retroalimentación extendida debajo de la pregunta ya está incluida en el bloque feedbackBox */}
     </ScrollView>
   );
 }

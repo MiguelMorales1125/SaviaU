@@ -39,8 +39,18 @@ export const retosStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#e9ecef'
   },
+  // Variación para la vista de listado (retos disponibles)
+  cardList: {
+    backgroundColor: '#ecf8f0',
+    borderTopWidth: 0,
+    borderBottomWidth: 0,
+  },
   cardRight: {
-    display: 'none'
+    display: 'none',
+    backgroundColor: 'transparent',
+    borderTopWidth: 0,
+    borderBottomWidth: 0,
+    borderColor: 'transparent'
   },
   sideImage: {
     width: '100%',
@@ -77,6 +87,11 @@ export const retosStyles = StyleSheet.create({
   option: {
     backgroundColor: '#f8f9fa',
   },
+  // Botón de opción para listado de sets (ligeramente verdoso para combinar paleta)
+  optionList: {
+    backgroundColor: '#f3faf6',
+    borderColor: '#d7eadf'
+  },
   optionDisabled: {
     backgroundColor: '#f8f9fa',
     opacity: 0.7,
@@ -105,6 +120,14 @@ export const retosStyles = StyleSheet.create({
     minHeight: 24,
     justifyContent: 'center'
   },
+  feedbackSuccess: {
+    backgroundColor: '#d1e7dd',
+    borderColor: '#badbcc'
+  },
+  feedbackDanger: {
+    backgroundColor: '#f8d7da',
+    borderColor: '#f5c2c7'
+  },
   feedbackCorrect: {
     color: '#0f5132',
     fontWeight: '700'
@@ -112,6 +135,13 @@ export const retosStyles = StyleSheet.create({
   feedbackWrong: {
     color: '#842029',
     fontWeight: '700'
+  },
+  // texto descriptivo agradable para la retroalimentación
+  feedbackBody: {
+    marginTop: 6,
+    fontFamily: 'serif',
+    fontSize: 15,
+    lineHeight: 22,
   },
   badgeBtn: {
     marginTop: 12,
@@ -142,6 +172,18 @@ export const retosStyles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 10,
     backgroundColor: '#198754'
+  },
+  badgeBanner: {
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#14532d',
+    alignItems: 'center'
+  },
+  badgeBannerText: {
+    color: '#fff',
+    fontWeight: '800'
   },
   resultScreen: {
     flex: 1,
@@ -198,6 +240,31 @@ export const retosStyles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 12
+  },
+  // Sección de retroalimentación inferior (bajo el bloque principal)
+  bottomSection: {
+    width: '100%',
+    paddingHorizontal: 12,
+    paddingBottom: 16,
+    paddingTop: 8,
+  },
+  bottomCard: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 14,
+    // en pantallas grandes, centra el contenido y limita el ancho para que quede en el medio
+    maxWidth: 1100,
+    alignSelf: 'center'
+  },
+  bottomTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  bottomText: {
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 20,
   }
 });
 

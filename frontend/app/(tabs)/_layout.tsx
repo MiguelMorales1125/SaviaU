@@ -54,7 +54,7 @@ function ProtectedTabs() {
         headerShown: false,
         tabBarActiveTintColor: '#ffffff',
         tabBarInactiveTintColor: 'rgba(255,255,255,0.75)',
-        tabBarStyle: { backgroundColor: '#198754', borderTopColor: '#198754', height: 56, paddingBottom: 6, paddingTop: 6 },
+        tabBarStyle: { backgroundColor: '#198754', borderTopColor: '#198754', height: 64, paddingBottom: 6, paddingTop: 6 },
         tabBarButton: HapticTab,
       }}>
       <Tabs.Screen
@@ -114,7 +114,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
 
   return (
     <View style={{ position: 'relative' }}>
-      <View style={{ flexDirection: 'row', backgroundColor: '#198754', borderTopColor: '#198754', borderTopWidth: 1, height: 56 }}>
+  <View style={{ flexDirection: 'row', backgroundColor: '#198754', borderTopColor: '#198754', borderTopWidth: 1, height: 64 }}>
         {state.routes.map((route: any, index: number) => {
           const { options } = descriptors[route.key];
           const isFocused = state.index === index;
@@ -126,8 +126,8 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
           const onLongPress = () => navigation.emit({ type: 'tabLongPress', target: route.key });
           return (
             <Pressable key={route.key} accessibilityRole="button" onPress={onPress} onLongPress={onLongPress} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-              {options.tabBarIcon ? options.tabBarIcon({ color, size: 20, focused: isFocused }) : null}
-              {options.title ? <Text style={{ color, fontSize: 12, fontWeight: isFocused ? '700' : '600' }}>{options.title}</Text> : null}
+              {options.tabBarIcon ? options.tabBarIcon({ color, size: 26, focused: isFocused }) : null}
+              {options.title ? <Text style={{ color, fontSize: 13, fontWeight: isFocused ? '800' : '700' }}>{options.title}</Text> : null}
             </Pressable>
           );
         })}
