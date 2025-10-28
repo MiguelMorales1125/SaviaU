@@ -14,7 +14,9 @@ import reactor.core.publisher.Mono;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
+import org.springframework.core.ParameterizedTypeReference;
 
 @Slf4j
 @Service
@@ -35,11 +37,50 @@ public class AuthService {
                 .retrieve()
                 .bodyToMono(Map.class)
                 .map(this::mapAuthResponseToLoginResponse)
-                .map(lr -> {
+                .flatMap(lr -> {
                     String uid = lr.getUser() != null ? lr.getUser().getId() : null;
                     String email = lr.getUser() != null ? lr.getUser().getEmail() : loginRequest.getEmail();
                     lr.setAppToken(generateAppToken(uid, email));
-                    return lr;
+
+                    // Consultar si el usuario es administrador y activo en admin_users
+                    Mono<List<Map<String, Object>>> adminRowsMono = clients.getDbAdmin().get()
+                            .uri(uriBuilder -> uriBuilder
+                                    .path("/admin_users")
+                                    .queryParam("select", "id,email,is_active")
+                                    .queryParam("email", "eq." + email)
+                                    .build())
+                            .retrieve()
+                            .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+
+                    return adminRowsMono
+                            .map(rows -> {
+                                try {
+                                    if (rows != null && !rows.isEmpty()) {
+                                        Map<String, Object> row = rows.get(0);
+                                        boolean isActive = row.get("is_active") == null ? true : Boolean.valueOf(String.valueOf(row.get("is_active")));
+                                        if (isActive) {
+                                            String subject = (uid != null && !uid.isBlank()) ? uid : email;
+                                            String adminToken = JwtUtil.generateHs256Token(
+                                                    subject,
+                                                    email,
+                                                    "admin",
+                                                    "savia-u-admin",
+                                                    7200,
+                                                    clients.getProps().getJwtSecret()
+                                            );
+                                            lr.setAdminToken(adminToken);
+                                            if (lr.getUser() != null) {
+                                                lr.getUser().setDiagnosticCompleted(Boolean.TRUE);
+                                            }
+                                        }
+                                    }
+                                } catch (Exception ignored) {}
+                                return lr;
+                            })
+                            .onErrorResume(ex -> {
+                                // Si falla la consulta admin, devolvemos login normal sin adminToken
+                                return Mono.just(lr);
+                            });
                 })
                 .doOnSuccess(r -> log.info("Usuario autenticado: {}", loginRequest.getEmail()))
                 .onErrorResume(WebClientResponseException.class, ex -> {
@@ -130,11 +171,11 @@ public class AuthService {
                 .defaultHeader("Authorization", "Bearer " + request.getAccessToken())
                 .build();
 
-        return userClient.get()
-                .uri("/user")
-                .retrieve()
-                .bodyToMono(Map.class)
-                .map(userResp -> {
+    return userClient.get()
+        .uri("/user")
+        .retrieve()
+        .bodyToMono(Map.class)
+        .flatMap(userResp -> {
                     @SuppressWarnings("unchecked")
                     Map<String, Object> user = (Map<String, Object>) userResp;
                     String id = (String) user.get("id");
@@ -156,7 +197,40 @@ public class AuthService {
                             .user(ui)
                             .build();
                     lr.setAppToken(generateAppToken(id, email));
-                    return lr;
+                    // Consultar admin_users para marcar adminToken y diagnosticCompleted si aplica
+                    Mono<List<Map<String, Object>>> adminRowsMono = clients.getDbAdmin().get()
+                            .uri(uriBuilder -> uriBuilder
+                                    .path("/admin_users")
+                                    .queryParam("select", "id,email,is_active")
+                                    .queryParam("email", "eq." + email)
+                                    .build())
+                            .retrieve()
+                            .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+
+                    return adminRowsMono.map(rows -> {
+                        try {
+                            if (rows != null && !rows.isEmpty()) {
+                                Map<String, Object> row = rows.get(0);
+                                boolean isActive = row.get("is_active") == null ? true : Boolean.valueOf(String.valueOf(row.get("is_active")));
+                                if (isActive) {
+                                    String subject = (id != null && !id.isBlank()) ? id : email;
+                                    String adminToken = JwtUtil.generateHs256Token(
+                                            subject,
+                                            email,
+                                            "admin",
+                                            "savia-u-admin",
+                                            7200,
+                                            clients.getProps().getJwtSecret()
+                                    );
+                                    lr.setAdminToken(adminToken);
+                                    if (lr.getUser() != null) {
+                                        lr.getUser().setDiagnosticCompleted(Boolean.TRUE);
+                                    }
+                                }
+                            }
+                        } catch (Exception ignored) {}
+                        return lr;
+                    }).onErrorResume(e -> Mono.just(lr));
                 })
                 .doOnError(e -> log.error("Error al finalizar login con Google: {}", e.getMessage()));
     }

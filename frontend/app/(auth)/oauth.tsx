@@ -153,6 +153,15 @@ export default function OAuthFinish() {
             // ignore network errors here, we'll fall back to local rules
           }
           setTimeout(() => {
+            try {
+              const isAdmin = Boolean(res?.data?.adminToken) || (typeof window !== 'undefined' && window.localStorage && window.localStorage.getItem('adminToken'));
+              if (isAdmin) {
+                // ensure diagnosticCompleted is set before navigating
+                try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('diagnosticCompleted', 'true'); } catch (e) {}
+                router.replace('/(admin)');
+                return;
+              }
+            } catch (e) {}
             if (!(isOnboarded || remoteOnboarded)) {
               router.replace('/(auth)/onboard');
             } else {

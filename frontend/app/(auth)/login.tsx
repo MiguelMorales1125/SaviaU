@@ -92,7 +92,19 @@ export default function Login() {
         
         
         setTimeout(() => {
-          router.replace("/(tabs)/home");
+          try {
+            const data: any = result?.data;
+            const isAdmin = Boolean(data?.adminToken) || (data?.user?.role === 'admin');
+            if (isAdmin) {
+              // Extra: admins saltan diagnóstico; asegura flag en localStorage antes de navegar
+              try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('diagnosticCompleted', 'true'); } catch (e) {}
+              router.replace("/(admin)");
+            } else {
+              router.replace("/(tabs)/home");
+            }
+          } catch (e) {
+            router.replace("/(tabs)/home");
+          }
         }, 2000);
       } else {
         setError(result.error || "Error de autenticación");

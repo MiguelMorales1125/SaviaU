@@ -40,8 +40,14 @@ function UserMenu() {
 }
 
 function ProtectedTabs() {
-  const { user } = useAuth();
+  const { user, adminToken } = useAuth();
+  const pathname = usePathname();
   // const colorScheme = useColorScheme();
+
+  if (adminToken) {
+    // Render nothing here; root AuthGate will redirect to /(admin)
+    return null;
+  }
 
   if (!user) {
     return <LoginScreen />;

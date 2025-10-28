@@ -688,10 +688,10 @@ export default function Retos() {
   const sideImageBySet: Record<string, ImageSourcePropType> = {
     'clima-1': require('../../assets/images/test1.png'),
     'renovables-1': require('../../assets/images/test2.png'),
-    'biodiversidad-1': require('../../assets/images/Fondo.png'),
-    'residuos-1': require('../../assets/images/Fondo.png'),
-    'agua-1': require('../../assets/images/mundo.png'),
-    'economia-1': require('../../assets/images/Fondo.png'),
+    'biodiversidad-1': require('../../assets/images/test3.png'),
+    'residuos-1': require('../../assets/images/test4.png'),
+    'agua-1': require('../../assets/images/test5.png'),
+    'economia-1': require('../../assets/images/test6.png'),
   };
   const sideImage: ImageSourcePropType | undefined = selectedSet ? sideImageBySet[selectedSet.id] : undefined;
 

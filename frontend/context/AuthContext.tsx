@@ -44,6 +44,9 @@ interface AuthContextType {
   // Supabase access token (from social login or frontend auth) - optional
   supabaseAccessToken?: string | undefined;
   setSupabaseAccessToken: (token?: string) => void;
+  // Special admin token issued by backend when user is an active admin
+  adminToken?: string | undefined;
+  setAdminToken: (token?: string) => void;
   // Diagnostic completion flag
   diagnosticCompleted: boolean;
   setDiagnosticCompleted: (v: boolean) => void;
@@ -62,6 +65,8 @@ const AuthContext = createContext<AuthContextType>({
   onboard: async (_accessTokenOrUndefined: string | undefined, _fullName: string, _carrera: string, _universidad: string, _semestre: number) => ({ success: false }),
   supabaseAccessToken: undefined,
   setSupabaseAccessToken: (_token?: string) => {},
+  adminToken: undefined,
+  setAdminToken: (_token?: string) => {},
   diagnosticCompleted: false,
   setDiagnosticCompleted: (_v: boolean) => {},
   logout: () => {},
@@ -79,6 +84,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [initialLoading, setInitialLoading] = useState(true);
   const [supabaseAccessToken, setSupabaseAccessToken] = useState<string | undefined>(undefined);
   const [supabaseRefreshToken, setSupabaseRefreshToken] = useState<string | undefined>(undefined);
+  const [adminToken, setAdminToken] = useState<string | undefined>(undefined);
   const [diagnosticCompleted, setDiagnosticCompleted] = useState<boolean>(false);
 
   // Cache de perfil por usuario para preservar campos si el backend no los devuelve tras login
@@ -124,13 +130,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
       let t: string | null = null;
       let d: string | null = null;
       let cachedUserJson: string | null = null;
+      let at: string | null = null;
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
           t = window.localStorage.getItem('supabaseAccessToken');
           d = window.localStorage.getItem('diagnosticCompleted');
           cachedUserJson = window.localStorage.getItem('user');
+          at = window.localStorage.getItem('adminToken');
           if (t) setSupabaseAccessToken(t);
-          if (d) setDiagnosticCompleted(d === 'true');
+          if (at) {
+            setAdminToken(at);
+            // Admins deben saltar diagnóstico – márcalo como completado
+            setDiagnosticCompleted(true);
+            try { window.localStorage.setItem('diagnosticCompleted', 'true'); } catch {}
+          }
+          if (d && !at) setDiagnosticCompleted(d === 'true');
           if (cachedUserJson) {
             try { setUser(JSON.parse(cachedUserJson)); } catch(e) {}
           }
@@ -311,10 +325,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // If backend returned a Supabase access token (some deployments may), persist it.
         // Backends may use either `supabaseAccessToken` or `accessToken` in responses.
         const tokenFromResp = loginData?.supabaseAccessToken || loginData?.accessToken || loginData?.appToken;
+        const adminTokenFromResp: string | undefined = loginData?.adminToken;
         const refreshFromResp = loginData?.refreshToken;
         if (tokenFromResp) {
           setSupabaseAccessToken(tokenFromResp);
           try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('supabaseAccessToken', tokenFromResp); } catch(e) {}
+        }
+        if (adminTokenFromResp) {
+          setAdminToken(adminTokenFromResp);
+          try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('adminToken', adminTokenFromResp); } catch(e) {}
+          // Asegura saltar diagnóstico para admins
+          setDiagnosticCompleted(true);
+          try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('diagnosticCompleted', 'true'); } catch(e) {}
         }
         if (refreshFromResp) {
           setSupabaseRefreshToken(refreshFromResp);
@@ -324,6 +346,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (loginData.user) {
           setUser(loginData.user);
           try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('user', JSON.stringify(loginData.user)); } catch(e) {}
+        }
+        // Si no vino adminToken, intenta obtenerlo con el endpoint de admin (best-effort)
+        try {
+          if (!adminTokenFromResp) {
+            const aResp = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.ADMIN_LOGIN), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email, password })
+            });
+            if (aResp.ok) {
+              const aData = await aResp.json();
+              if (aData?.adminToken) {
+                setAdminToken(aData.adminToken);
+                try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('adminToken', aData.adminToken); } catch(e) {}
+                // propagar en el objeto devuelto para consumidores como login.tsx
+                (loginData as any).adminToken = aData.adminToken;
+              }
+            }
+          }
+        } catch (e) {
+          // ignorar errores del flujo admin
         }
         // Ensure latest profile fields are loaded from backend after login
         try {
@@ -387,6 +430,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (resp.ok) {
         const data = await resp.json();
+        const adminTokenFromResp: string | undefined = data?.adminToken;
         // backend returns LoginResponse-like object
   if (data?.user) {
           // Determine whether the backend considers the user onboarded. Some
@@ -412,6 +456,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
             setDiagnosticCompleted(true);
             try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('diagnosticCompleted', 'true'); } catch(e) {}
           }
+        }
+        // persist admin token if backend indicates admin
+        if (adminTokenFromResp) {
+          setAdminToken(adminTokenFromResp);
+          try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('adminToken', adminTokenFromResp); } catch(e) {}
+          // ensure diagnosticCompleted to bypass guard
+          setDiagnosticCompleted(true);
+          try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('diagnosticCompleted', 'true'); } catch(e) {}
         }
         return { success: true, data };
       }
@@ -586,8 +638,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     console.log('Cerrando sesión...');
     setUser(null);
     setSupabaseAccessToken(undefined);
+    setAdminToken(undefined);
     setDiagnosticCompleted(false);
-    try { if (typeof window !== 'undefined' && window.localStorage) { window.localStorage.removeItem('supabaseAccessToken'); window.localStorage.removeItem('diagnosticCompleted'); window.localStorage.removeItem('user'); } } catch(e) {}
+    try { if (typeof window !== 'undefined' && window.localStorage) { window.localStorage.removeItem('supabaseAccessToken'); window.localStorage.removeItem('adminToken'); window.localStorage.removeItem('diagnosticCompleted'); window.localStorage.removeItem('user'); } } catch(e) {}
   
   };
 
@@ -664,6 +717,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // expose supabase token and setters
       supabaseAccessToken,
       setSupabaseAccessToken: (t?: string) => { setSupabaseAccessToken(t); try { if (typeof window !== 'undefined' && window.localStorage) { if (t) window.localStorage.setItem('supabaseAccessToken', t); else window.localStorage.removeItem('supabaseAccessToken'); } } catch(e) {} },
+      adminToken,
+      setAdminToken: (t?: string) => { setAdminToken(t); try { if (typeof window !== 'undefined' && window.localStorage) { if (t) window.localStorage.setItem('adminToken', t); else window.localStorage.removeItem('adminToken'); } } catch(e) {} },
       diagnosticCompleted,
       setDiagnosticCompleted: (v: boolean) => { setDiagnosticCompleted(v); try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('diagnosticCompleted', v ? 'true' : 'false'); } catch(e) {} },
       logout, 

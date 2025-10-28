@@ -19,6 +19,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(admin)" options={{ headerShown: false }} />
           <Stack.Screen name="diagnostic" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
   </Stack>
@@ -35,7 +36,7 @@ import { useRouter } from 'expo-router';
 
 // Navigation guard that redirects to /diagnostic when needed.
 function AuthGate() {
-  const { user, diagnosticCompleted, initialLoading } = useAuth();
+  const { user, diagnosticCompleted, initialLoading, adminToken } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -49,18 +50,27 @@ function AuthGate() {
       if (!path && (router as any).pathname) path = (router as any).pathname;
     } catch (e) {}
 
-    // Si está logueado y NO ha completado diagnóstico, redirigir a /diagnostic
+    // 1) Si es admin, fuerce ir al panel (evita tabs/home/diagnostic)
+    if (user && adminToken) {
+      if (!path.includes('/(admin)')) {
+        router.replace('/(admin)');
+        return;
+      }
+    }
+
+    // 2) Si no es admin y NO ha completado diagnóstico, redirigir a /diagnostic
     // excepto cuando ya estamos en /diagnostic, en rutas de auth o en la pantalla de perfil.
     if (
       user &&
       !diagnosticCompleted &&
+      !adminToken &&
       !path.includes('/diagnostic') &&
       !path.includes('/(auth)') &&
       !path.includes('/(tabs)/perfil')
     ) {
       router.replace('/diagnostic');
     }
-  }, [user, diagnosticCompleted, initialLoading]);
+  }, [user, diagnosticCompleted, adminToken, initialLoading]);
 
   return null;
 }

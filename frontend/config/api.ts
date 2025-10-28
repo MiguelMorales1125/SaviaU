@@ -21,6 +21,7 @@ export const API_CONFIG = {
       GOOGLE_URL: '/api/auth/google/url',
       GOOGLE_FINISH: '/api/auth/google/finish',
       ONBOARD: '/api/auth/onboard',
+      ADMIN_LOGIN: '/api/admin/auth/login',
   }
 };
 

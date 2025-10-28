@@ -17,6 +17,8 @@ public class LoginResponse {
     private Long expiresIn;
     private UserInfo user;
     private String appToken;
+    // Si el usuario pertenece a admin_users (activo), el backend incluirá un token especial de administrador
+    private String adminToken;
 
     @Data
     @NoArgsConstructor
@@ -28,5 +30,6 @@ public class LoginResponse {
         private String role;
         private String createdAt;
         private String lastSignInAt;
+        private Boolean diagnosticCompleted;
     }
 }
