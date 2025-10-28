@@ -14,8 +14,14 @@ public class ProfileUpdateRequest {
     @Pattern(regexp = "^[A-Za-z0-9_.-]+$", message = "alias solo permite letras, números, puntos, guiones y guion bajo")
     private String alias;
 
+    @Size(max = 100, message = "fullName no debe exceder 100 caracteres")
+    private String fullName;
+
     @Size(max = 100, message = "carrera no debe exceder 100 caracteres")
     private String carrera;
+
+    @Size(max = 100, message = "universidad no debe exceder 100 caracteres")
+    private String universidad;
 
     @Min(value = 1, message = "semestre debe ser >= 1")
     @Max(value = 20, message = "semestre debe ser <= 20")
@@ -28,4 +34,3 @@ public class ProfileUpdateRequest {
     @Size(max = 100, message = "avatarKey demasiado largo")
     private String avatarKey;
 }
-

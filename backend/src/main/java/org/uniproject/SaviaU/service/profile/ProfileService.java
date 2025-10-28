@@ -76,40 +76,85 @@ public class ProfileService {
         return getUserFromToken(request.getAccessToken())
                 .flatMap(user -> {
                     String id = (String) user.get("id");
+                    String email = (String) user.get("email");
+
+                    // Construir mapa de cambios
                     Map<String, Object> update = new LinkedHashMap<>();
                     if (request.getAlias() != null) update.put("alias", request.getAlias());
+                    if (request.getFullName() != null) update.put("full_name", request.getFullName());
                     if (request.getCarrera() != null) update.put("carrera", request.getCarrera());
+                    if (request.getUniversidad() != null) update.put("universidad", request.getUniversidad());
                     if (request.getSemestre() != null) update.put("semestre", request.getSemestre());
                     if (request.getIntereses() != null) update.put("intereses", request.getIntereses());
                     if (request.getAvatarKey() != null) {
                         update.put("avatar_key", request.getAvatarKey());
                         update.put("photo_url", null); // si elige avatar, limpiar foto personalizada
                     }
-                    if (update.isEmpty()) {
-                        return Mono.just(Map.of("message", "Sin cambios"));
-                    }
-                    update.put("updated_at", Instant.now().toString());
+                    update.put("updated_at", java.time.Instant.now().toString());
 
-                    return clients.getDbAdmin().patch()
+                    Mono<List<Map>> existsMono = clients.getDbAdmin().get()
                             .uri(uriBuilder -> uriBuilder
                                     .path("/usuarios")
+                                    .queryParam("select", "id")
                                     .queryParam("id", "eq." + id)
                                     .build())
-                            .header("Prefer", "return=representation")
-                            .bodyValue(update)
                             .retrieve()
                             .bodyToFlux(Map.class)
-                            .next()
-                            .onErrorResume(WebClientResponseException.class, ex -> {
-                                log.error("Error actualizando perfil: {}", ex.getResponseBodyAsString(StandardCharsets.UTF_8));
-                                return Mono.error(new RuntimeException("No se pudo actualizar el perfil"));
-                            })
-                            .map(row -> {
-                                Map<String, Object> resp = new HashMap<>();
-                                resp.put("message", "Perfil actualizado");
-                                resp.put("profile", row);
-                                return resp;
-                            });
+                            .collectList();
+
+                    return existsMono.flatMap(list -> {
+                        if (list.isEmpty()) {
+                            // Crear registro si no existe (upsert con id/email + cambios)
+                            Map<String, Object> body = new LinkedHashMap<>();
+                            body.put("id", id);
+                            if (email != null) body.put("email", email);
+                            body.putAll(update);
+                            return clients.getDbAdmin().post()
+                                    .uri(uriBuilder -> uriBuilder
+                                            .path("/usuarios")
+                                            .queryParam("on_conflict", "id")
+                                            .build())
+                                    .header("Prefer", "resolution=merge-duplicates,return=representation")
+                                    .bodyValue(body)
+                                    .retrieve()
+                                    .bodyToFlux(Map.class)
+                                    .next()
+                                    .map(row -> {
+                                        Map<String, Object> resp = new HashMap<>();
+                                        resp.put("message", "Perfil creado/actualizado");
+                                        resp.put("profile", row);
+                                        return resp;
+                                    })
+                                    .onErrorResume(WebClientResponseException.class, ex -> {
+                                        log.error("Error creando perfil: {}", ex.getResponseBodyAsString(java.nio.charset.StandardCharsets.UTF_8));
+                                        return Mono.error(new RuntimeException("No se pudo crear el perfil"));
+                                    });
+                        } else {
+                            if (update.size() == 1 && update.containsKey("updated_at")) {
+                                return Mono.just(Map.of("message", "Sin cambios"));
+                            }
+                            return clients.getDbAdmin().patch()
+                                    .uri(uriBuilder -> uriBuilder
+                                            .path("/usuarios")
+                                            .queryParam("id", "eq." + id)
+                                            .build())
+                                    .header("Prefer", "return=representation")
+                                    .bodyValue(update)
+                                    .retrieve()
+                                    .bodyToFlux(Map.class)
+                                    .next()
+                                    .onErrorResume(WebClientResponseException.class, ex -> {
+                                        log.error("Error actualizando perfil: {}", ex.getResponseBodyAsString(java.nio.charset.StandardCharsets.UTF_8));
+                                        return Mono.error(new RuntimeException("No se pudo actualizar el perfil"));
+                                    })
+                                    .map(row -> {
+                                        Map<String, Object> resp = new HashMap<>();
+                                        resp.put("message", "Perfil actualizado");
+                                        resp.put("profile", row);
+                                        return resp;
+                                    });
+                        }
+                    });
                 });
     }
 
