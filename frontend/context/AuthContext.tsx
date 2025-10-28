@@ -25,6 +25,9 @@ interface User {
   universidad?: string;
   semestre?: number;
   onboarded?: boolean;
+  // Alias (handle público) y lista de intereses
+  alias?: string;
+  interests?: string[];
   // Campos de perfil adicionales
   // Clave de avatar seleccionado (mutuamente exclusivo con profileUrl)
   avatarKey?: string;
@@ -89,6 +92,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         universidad: profile.universidad,
         semestre: profile.semestre,
         profileUrl: profile.profileUrl,
+        alias: profile.alias,
+        interests: profile.interests,
         avatarKey: (profile as any)?.avatarKey,
       };
       window.localStorage.setItem(key, JSON.stringify(toStore));
@@ -211,6 +216,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 universidad: prev.universidad ?? cached.universidad,
                 semestre: prev.semestre ?? cached.semestre,
                 profileUrl: prev.profileUrl ?? cached.profileUrl,
+                alias: (prev as any).alias ?? (cached as any).alias,
+                interests: (prev as any).interests ?? (cached as any).interests,
                 // @ts-ignore avatarKey extendido en User
                 avatarKey: (prev as any).avatarKey ?? (cached as any).avatarKey,
               } as User;
@@ -614,7 +621,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
         // description
         if (Object.prototype.hasOwnProperty.call(profile, 'description')) next.description = profile.description ?? undefined;
-  // intereses eliminados
+        // alias (acepta snake/camel y variantes comunes)
+        if (
+          Object.prototype.hasOwnProperty.call(profile, 'alias') ||
+          Object.prototype.hasOwnProperty.call(profile, 'handle') ||
+          Object.prototype.hasOwnProperty.call(profile, 'username')
+        ) {
+          (next as any).alias = (profile.alias ?? profile.handle ?? profile.username) ?? undefined;
+        }
+        // interests/intereses (array o CSV -> array)
+        if (
+          Object.prototype.hasOwnProperty.call(profile, 'interests') ||
+          Object.prototype.hasOwnProperty.call(profile, 'intereses')
+        ) {
+          const raw = (profile as any).interests ?? (profile as any).intereses;
+          if (Array.isArray(raw)) (next as any).interests = raw as string[];
+          else if (typeof raw === 'string') (next as any).interests = raw.split(',').map((s: string) => s.trim()).filter(Boolean);
+          else (next as any).interests = undefined;
+        }
         // avatarKey (normaliza snake/camel y permite limpiar)
         if (Object.prototype.hasOwnProperty.call(profile, 'avatar_key') || Object.prototype.hasOwnProperty.call(profile, 'avatarKey')) {
           (next as any).avatarKey = (profile.avatar_key ?? profile.avatarKey) ?? undefined;

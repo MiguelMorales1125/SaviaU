@@ -18,7 +18,7 @@ export const retosStyles = StyleSheet.create({
   header: {
     alignSelf: 'flex-start',
     fontSize: 13,
-    color: '#0d6efd',
+    color: '#198754',
     fontWeight: '700',
     marginBottom: 12,
   },
@@ -48,7 +48,7 @@ export const retosStyles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 13,
-    color: '#0d6efd',
+    color: '#198754',
     fontWeight: '800',
     marginBottom: 6,
     textTransform: 'uppercase',
@@ -176,15 +176,25 @@ export const retosStyles = StyleSheet.create({
     fontWeight: '800',
     color: '#198754'
   },
-  pointsText: {
-    fontSize: 28,
+  pointsBox: {
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  pointsNumber: {
+    fontSize: 32,
     fontWeight: '900',
-    color: '#0d6efd',
-    marginVertical: 10
+    color: '#111827',
+    lineHeight: 36,
+  },
+  pointsPercent: {
+    marginTop: 2,
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#6b7280',
   },
   continueBtn: {
     marginTop: 8,
-    backgroundColor: '#0d6efd',
+    backgroundColor: '#198754',
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 12

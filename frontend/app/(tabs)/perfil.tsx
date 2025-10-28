@@ -14,7 +14,8 @@ export default function Perfil() {
   const [universidad, setUniversidad] = useState<string>(user?.universidad || '');
   const [carrera, setCarrera] = useState<string>(user?.carrera || '');
   const [semestre, setSemestre] = useState<string>(user?.semestre ? String(user?.semestre) : '');
-  // intereses eliminados
+  const [alias, setAlias] = useState<string>((user as any)?.alias || '');
+  const [interests, setInterests] = useState<string[]>(Array.isArray((user as any)?.interests) ? (user as any).interests : []);
   const [imageUri, setImageUri] = useState<string | undefined>(user?.profileUrl || undefined);
   // Para web: mantener base64 y mime para construir un Blob/File confiable
   const [imageBase64, setImageBase64] = useState<string | undefined>(undefined);
@@ -53,7 +54,19 @@ export default function Perfil() {
     'Otra'
   ];
 
-  // Intereses eliminados
+  // Intereses disponibles (puedes ajustar)
+  const interestsOptions: string[] = [
+    'Cambio climático',
+    'Energías renovables',
+    'Biodiversidad',
+    'Reciclaje',
+    'Agua y océanos',
+    'Economía circular',
+    'Calidad del aire',
+    'Bosques y reforestación',
+    'Agricultura sostenible',
+    'Movilidad sostenible',
+  ];
 
   // Componente Select similar al utilizado en register/onboard
   const Select = ({ options, selected, onSelect, placeholder }: { options: string[]; selected: string; onSelect: (v: string) => void; placeholder?: string }) => {
@@ -154,14 +167,15 @@ export default function Perfil() {
     setSemestre(user?.semestre ? String(user.semestre) : '');
     setImageUri(user?.profileUrl || undefined);
     setAvatarKey((user as any)?.avatarKey || undefined);
-  // intereses eliminados
+    setAlias((user as any)?.alias || '');
+    setInterests(Array.isArray((user as any)?.interests) ? (user as any).interests : []);
     setImageBase64(undefined);
   }, [user]);
 
   const startEditing = () => {
     // capture snapshot to detect unsaved changes
     initialSnapshot.current = {
-      fullName, universidad, carrera, semestre, imageUri, avatarKey
+      fullName, universidad, carrera, semestre, imageUri, avatarKey, alias, interests: [...interests]
     };
     setEditing(true);
   };
@@ -171,7 +185,8 @@ export default function Perfil() {
     if (!s) return false;
     return (
       s.fullName !== fullName || s.universidad !== universidad ||
-      s.carrera !== carrera || s.semestre !== semestre || s.imageUri !== imageUri || s.avatarKey !== avatarKey
+      s.carrera !== carrera || s.semestre !== semestre || s.imageUri !== imageUri || s.avatarKey !== avatarKey ||
+      s.alias !== alias || JSON.stringify(s.interests || []) !== JSON.stringify(interests)
     );
   };
 
@@ -188,6 +203,8 @@ export default function Perfil() {
           setSemestre(s.semestre || '');
           setImageUri(s.imageUri);
           setAvatarKey(s.avatarKey);
+          setAlias(s.alias || '');
+          setInterests(Array.isArray(s.interests) ? s.interests : []);
           setEditing(false);
         } }
       ]);
@@ -339,9 +356,11 @@ export default function Perfil() {
           universidad: universidad.trim(),
           semestre: semestre ? Number(semestre) : undefined,
           avatarKey: avatarKey || undefined,
+          alias: alias?.trim() || undefined,
+          interests: interests,
         };
-  // alias eliminado del payload
-  // intereses eliminados del payload
+        // Compatibilidad opcional con otros backends
+        (patchBody as any).intereses = interests;
 
         console.debug('[Perfil] PATCH /api/profile payload', patchBody);
         const patchResp = await fetch(getApiUrl('/api/profile'), {
@@ -379,8 +398,8 @@ export default function Perfil() {
           semestre: (profile.semestre ?? undefined) || (semestre ? Number(semestre) : undefined),
           profileUrl: finalProfileUrl,
           avatarKey: finalAvatarKey,
-          // alias eliminado del merge
-          // intereses eliminados del merge
+          alias: (profile.alias ?? profile.handle ?? undefined) || alias?.trim() || undefined,
+          interests: Array.isArray(profile.interests) ? profile.interests : (Array.isArray(profile.intereses) ? profile.intereses : interests),
         } as any);
 
         Alert.alert('Guardado', 'Perfil actualizado correctamente.');
@@ -398,7 +417,8 @@ export default function Perfil() {
             carrera: carrera.trim(),
             universidad: universidad.trim(),
             semestre: semestre ? Number(semestre) : undefined,
-            // intereses eliminados
+            alias: alias?.trim() || undefined,
+            interests: interests,
             avatarKey: fallbackAvatarKey,
             profileUrl: fallbackProfileUrl,
           } as any);
@@ -439,7 +459,7 @@ export default function Perfil() {
             {/* Nombre y líneas secundarias */}
             <View style={{ alignItems: 'center', marginTop: 8 }}>
               <Text style={styles.nameText}>{fullName || 'Tu nombre'}</Text>
-              <Text style={styles.handleText}>@{(user?.email || '').split('@')[0] || 'usuario'}</Text>
+              <Text style={styles.handleText}>@{(alias || (user?.email || '').split('@')[0]) || 'usuario'}</Text>
               <Text style={styles.locationText}> {universidad || '—'}</Text>
             </View>
 
@@ -453,10 +473,16 @@ export default function Perfil() {
               ) : null}
             </View>
 
-            {/* Caja informativa simple (sin intereses) */}
-            <View style={styles.aboutBox}>
-              <Text style={styles.aboutText}></Text>
-            </View>
+            {/* Intereses seleccionados */}
+            {interests.length > 0 ? (
+              <View style={[styles.chipsRow, { marginTop: 12 }]}> 
+                {interests.map((it) => (
+                  <View key={it} style={styles.chip}><Text style={styles.chipText}> {it}</Text></View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.aboutBox}><Text style={styles.aboutText}>Agrega tus intereses para personalizar la experiencia.</Text></View>
+            )}
           </View>
 
           {/* Progresos y logros */}
@@ -559,7 +585,8 @@ export default function Perfil() {
                 <Text style={styles.label}>Nombre completo</Text>
                 <TextInput placeholderTextColor="#999" style={styles.input} value={fullName} onChangeText={setFullName} placeholder="Tu nombre completo" />
 
-                {/* Alias eliminado */}
+                <Text style={styles.label}>Alias (público)</Text>
+                <TextInput placeholderTextColor="#999" style={styles.input} value={alias} onChangeText={setAlias} placeholder="Tu alias público (opcional)" />
 
                 {/* Descripción removida temporalmente; mostramos mensaje fijo en modo lectura */}
               </View>
@@ -584,7 +611,27 @@ export default function Perfil() {
             </View>
           </View>
 
-          {/* Intereses eliminados */}
+          {/* Intereses: selección por chips */}
+          <View style={styles.prefsCard}>
+            <Text style={styles.cardTitle}>Intereses</Text>
+            <Text style={styles.cardSubtext}>Elige varios para personalizar contenidos.</Text>
+            <View style={styles.pillGrid}>
+              {interestsOptions.map((opt) => {
+                const active = interests.includes(opt);
+                return (
+                  <TouchableOpacity
+                    key={opt}
+                    onPress={() => {
+                      setInterests((prev) => active ? prev.filter(x => x !== opt) : [...prev, opt]);
+                    }}
+                    style={[styles.pill, active ? styles.pillActive : styles.pillMuted]}
+                  >
+                    <Text style={[styles.pillText, active ? styles.pillTextActive : styles.pillTextMuted]}>{opt}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
 
           {/* Acciones inferiores eliminadas: Cerrar sesión se ubica junto a Guardar cambios en el encabezado */}
         </View>

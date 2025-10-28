@@ -195,14 +195,14 @@ public class TriviaService {
                     return Mono.error(new RuntimeException("La pregunta no pertenece a esta trivia"));
                 }
 
-                boolean isCorrect = Boolean.TRUE.equals(opt.get("is_correct"));
+                // Extraer explicación si existe
                 String explanation = opt.get("explanation") == null ? null : String.valueOf(opt.get("explanation"));
 
-                // Buscar opción correcta para UI (si diferente a la seleccionada)
+                // Buscar opción correcta para UI (y para determinar corrección de forma robusta)
                 Mono<List<Map>> correctOptMono = clients.getDbAdmin().get()
                         .uri(uriBuilder -> uriBuilder
                                 .path("/trivia_options")
-                                .queryParam("select", "id")
+                                .queryParam("select", "id,is_correct")
                                 .queryParam("question_id", "eq." + request.getQuestionId())
                                 .queryParam("is_correct", "eq.true")
                                 .build())
@@ -210,35 +210,38 @@ public class TriviaService {
                         .bodyToFlux(Map.class)
                         .collectList();
 
-                // Upsert respuesta
-                Map<String, Object> answerRow = new HashMap<>();
-                answerRow.put("attempt_id", request.getAttemptId());
-                answerRow.put("question_id", request.getQuestionId());
-                answerRow.put("selected_option_id", request.getSelectedOptionId());
-                answerRow.put("is_correct", isCorrect);
-
-                Mono<String> upsertAns = clients.getDbAdmin().post()
-                        .uri(uriBuilder -> uriBuilder
-                                .path("/trivia_answers")
-                                .queryParam("on_conflict", "attempt_id,question_id")
-                                .build())
-                        .header("Prefer", "resolution=merge-duplicates,return=minimal")
-                        .bodyValue(answerRow)
-                        .retrieve()
-                        .bodyToMono(String.class)
-                        .onErrorResume(WebClientResponseException.class, ex -> Mono.just(""));
-
-                return Mono.zip(correctOptMono, upsertAns).map(t -> {
-                    List<Map> corr = t.getT1();
+                // Primero obtenemos la(s) opción(es) correcta(s), luego determinamos la corrección
+                return correctOptMono.flatMap(corr -> {
                     String correctOptionId = corr.isEmpty() ? null : (String) corr.get(0).get("id");
-                    return TriviaAnswerResponse.builder()
-                            .attemptId(request.getAttemptId())
-                            .questionId(request.getQuestionId())
-                            .selectedOptionId(request.getSelectedOptionId())
-                            .correct(isCorrect)
-                            .explanation(explanation)
-                            .correctOptionId(correctOptionId)
-                            .build();
+                    // Determinar si la selección es correcta comparando ids (fallback más robusto)
+                    boolean computedIsCorrect = Objects.equals(correctOptionId, request.getSelectedOptionId())
+                            || Boolean.TRUE.equals(opt.get("is_correct"));
+
+                    // Upsert respuesta con el valor determinado
+                    Map<String, Object> answerRow = new HashMap<>();
+                    answerRow.put("attempt_id", request.getAttemptId());
+                    answerRow.put("question_id", request.getQuestionId());
+                    answerRow.put("selected_option_id", request.getSelectedOptionId());
+                    answerRow.put("is_correct", computedIsCorrect);
+
+                    return clients.getDbAdmin().post()
+                            .uri(uriBuilder -> uriBuilder
+                                    .path("/trivia_answers")
+                                    .queryParam("on_conflict", "attempt_id,question_id")
+                                    .build())
+                            .header("Prefer", "resolution=merge-duplicates,return=minimal")
+                            .bodyValue(answerRow)
+                            .retrieve()
+                            .bodyToMono(String.class)
+                            .onErrorResume(WebClientResponseException.class, ex -> Mono.just(""))
+                            .map(u -> TriviaAnswerResponse.builder()
+                                    .attemptId(request.getAttemptId())
+                                    .questionId(request.getQuestionId())
+                                    .selectedOptionId(request.getSelectedOptionId())
+                                    .correct(computedIsCorrect)
+                                    .explanation(explanation)
+                                    .correctOptionId(correctOptionId)
+                                    .build());
                 });
             });
         });

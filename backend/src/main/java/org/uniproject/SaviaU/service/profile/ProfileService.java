@@ -36,12 +36,12 @@ public class ProfileService {
                 .flatMap(user -> {
                     String id = (String) user.get("id");
                     String email = (String) user.get("email");
-                    return clients.getDbAdmin().get()
-                            .uri(uriBuilder -> uriBuilder
-                                    .path("/usuarios")
-                                    .queryParam("select", "id,full_name,carrera,universidad,semestre,alias,intereses,photo_url,avatar_key,updated_at")
-                                    .queryParam("id", "eq." + id)
-                                    .build())
+            return clients.getDbAdmin().get()
+                .uri(uriBuilder -> uriBuilder
+                    .path("/usuarios")
+                    .queryParam("select", "id,full_name,carrera,universidad,semestre,alias,intereses,photo_url,avatar_key,updated_at")
+                    .queryParam("id", "eq." + id)
+                    .build())
                             .retrieve()
                             .bodyToFlux(Map.class)
                             .collectList()
