@@ -25,6 +25,9 @@ interface User {
   universidad?: string;
   semestre?: number;
   onboarded?: boolean;
+  // Campos de perfil adicionales
+  // Clave de avatar seleccionado (mutuamente exclusivo con profileUrl)
+  avatarKey?: string;
 }
 
 interface AuthContextType {
@@ -75,6 +78,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [supabaseRefreshToken, setSupabaseRefreshToken] = useState<string | undefined>(undefined);
   const [diagnosticCompleted, setDiagnosticCompleted] = useState<boolean>(false);
 
+  // Cache de perfil por usuario para preservar campos si el backend no los devuelve tras login
+  const saveProfileCache = (email: string | undefined, profile: Partial<User>) => {
+    try {
+      if (!email || typeof window === 'undefined' || !window.localStorage) return;
+      const key = `profileCache:${email}`;
+      const toStore: Partial<User> = {
+        fullName: profile.fullName,
+        carrera: profile.carrera,
+        universidad: profile.universidad,
+        semestre: profile.semestre,
+        profileUrl: profile.profileUrl,
+        avatarKey: (profile as any)?.avatarKey,
+      };
+      window.localStorage.setItem(key, JSON.stringify(toStore));
+    } catch {}
+  };
+
+  const loadProfileCache = (email: string | undefined): Partial<User> | null => {
+    try {
+      if (!email || typeof window === 'undefined' || !window.localStorage) return null;
+      const key = `profileCache:${email}`;
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return null;
+      return JSON.parse(raw) as Partial<User>;
+    } catch {
+      return null;
+    }
+  };
+
 
   useEffect(() => {
     checkInitialAuthState();
@@ -86,12 +118,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // restore persisted supabase access token and diagnostic flag (web only)
       let t: string | null = null;
       let d: string | null = null;
+      let cachedUserJson: string | null = null;
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
           t = window.localStorage.getItem('supabaseAccessToken');
           d = window.localStorage.getItem('diagnosticCompleted');
+          cachedUserJson = window.localStorage.getItem('user');
           if (t) setSupabaseAccessToken(t);
           if (d) setDiagnosticCompleted(d === 'true');
+          if (cachedUserJson) {
+            try { setUser(JSON.parse(cachedUserJson)); } catch(e) {}
+          }
 
           // If we have a token but no persisted diagnostic flag, ask the backend
           // for the authoritative status so the navigation guard won't flash the
@@ -156,6 +193,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // ignore
       }
 
+      // Hydrate profile from backend if we have a token, to ensure the latest
+      // profile fields after app restart.
+      try {
+        if (t) {
+          await hydrateProfileFromBackend(t);
+          // Si faltan campos, completa desde cache del usuario
+          try {
+            setUser((prev) => {
+              if (!prev) return prev;
+              const cached = loadProfileCache(prev.email);
+              if (!cached) return prev;
+              const next = {
+                ...prev,
+                fullName: prev.fullName ?? cached.fullName,
+                carrera: prev.carrera ?? cached.carrera,
+                universidad: prev.universidad ?? cached.universidad,
+                semestre: prev.semestre ?? cached.semestre,
+                profileUrl: prev.profileUrl ?? cached.profileUrl,
+                // @ts-ignore avatarKey extendido en User
+                avatarKey: (prev as any).avatarKey ?? (cached as any).avatarKey,
+              } as User;
+              try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('user', JSON.stringify(next)); } catch {}
+              return next;
+            });
+          } catch {}
+        }
+      } catch (e) {
+        // ignore fetch profile failure
+      }
+
       console.log('Verificación inicial completada - estado cargado');
       setInitialLoading(false);
       
@@ -168,7 +235,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const updateUser = (updates: Partial<User>) => {
     setUser((prev) => {
       if (!prev) return { ...(updates as User) };
-      return { ...prev, ...updates };
+      const merged = { ...prev, ...updates } as User;
+      try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('user', JSON.stringify(merged)); } catch(e) {}
+      try { saveProfileCache(merged.email, merged); } catch {}
+      return merged;
     });
   };
 
@@ -244,7 +314,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
           try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('supabaseRefreshToken', refreshFromResp); } catch(e) {}
         }
         // Merge returned user and persist diagnosticCompleted if present
-        setUser(loginData.user);
+        if (loginData.user) {
+          setUser(loginData.user);
+          try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('user', JSON.stringify(loginData.user)); } catch(e) {}
+        }
+        // Ensure latest profile fields are loaded from backend after login
+        try {
+          if (tokenFromResp) {
+            await hydrateProfileFromBackend(tokenFromResp);
+            // Completa con cache por si el backend no devuelve todos los campos
+            setUser((prev) => {
+              if (!prev) return prev;
+              const cached = loadProfileCache(prev.email);
+              if (!cached) return prev;
+              const next = {
+                ...prev,
+                fullName: prev.fullName ?? cached.fullName,
+                carrera: prev.carrera ?? cached.carrera,
+                universidad: prev.universidad ?? cached.universidad,
+                semestre: prev.semestre ?? cached.semestre,
+                profileUrl: prev.profileUrl ?? cached.profileUrl,
+                // @ts-ignore avatarKey extendido en User
+                avatarKey: (prev as any).avatarKey ?? (cached as any).avatarKey,
+              } as User;
+              try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('user', JSON.stringify(next)); } catch {}
+              return next;
+            });
+          }
+        } catch(e) {}
         // Política solicitada: si el usuario ya está registrado e inicia sesión de nuevo,
         // no mostrar diagnóstico. Marcamos el flag como completado para evitar redirecciones.
         if (loginData?.user?.diagnosticCompleted) {
@@ -292,6 +389,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           const isOnboarded = Boolean(data.user?.onboarded || data.user?.fullName);
           const mergedUser = { ...data.user, onboarded: isOnboarded } as any;
           setUser(mergedUser);
+          try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('user', JSON.stringify(mergedUser)); } catch(e) {}
           // persist a simple onboarded flag in localStorage to avoid repeated redirects
           try { if (typeof window !== 'undefined' && window.localStorage) {
             if (isOnboarded) window.localStorage.setItem('onboarded', 'true');
@@ -340,7 +438,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // backend should return updated user; merge into state
         if (data?.user) {
           const merged = { ...(data.user || {}), onboarded: true } as any;
-          setUser((prev) => ({ ...(prev || {}), ...merged } as any));
+          setUser((prev) => {
+            const next = ({ ...(prev || {}), ...merged } as any);
+            try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('user', JSON.stringify(next)); } catch(e) {}
+            return next;
+          });
           try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('onboarded', 'true'); } catch(e) {}
           if (data.user?.diagnosticCompleted) {
             setDiagnosticCompleted(true);
@@ -405,6 +507,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             };
 
         setUser(newUser);
+        try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('user', JSON.stringify(newUser)); } catch(e) {}
         // If the registration included a fullName, consider the profile onboarded
         try { if (typeof window !== 'undefined' && window.localStorage) {
           if (newUser?.fullName) window.localStorage.setItem('onboarded', 'true');
@@ -419,6 +522,44 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (refreshFromReg) {
           setSupabaseRefreshToken(refreshFromReg);
           try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('supabaseRefreshToken', refreshFromReg); } catch(e) {}
+        }
+
+        // Persist the profile server-side right after registration to avoid losing data
+        // in entornos donde /register no guarda el perfil completo.
+        try {
+          const token = tokenFromReg || supabaseAccessToken;
+          if (token) {
+            const patchResp = await fetch(getApiUrl('/api/profile'), {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                accessToken: token,
+                fullName: fullName,
+                carrera: carrera || '',
+                universidad: universidad || '',
+                semestre: semestre || 0,
+              }),
+            });
+            if (patchResp.ok) {
+              const patched = await patchResp.json();
+              const profile = patched?.profile || {};
+              const merged = {
+                ...newUser,
+                fullName: profile.full_name || fullName,
+                carrera: profile.carrera ?? (carrera || ''),
+                universidad: profile.universidad ?? (universidad || ''),
+                semestre: profile.semestre ?? (semestre || 0),
+                profileUrl: profile.photo_url || newUser.profileUrl,
+                description: profile.description || newUser.description,
+                // normaliza avatar_key -> avatarKey también en el flujo de registro
+                ...(profile.avatar_key ? { avatarKey: profile.avatar_key } : {}),
+              } as any;
+              setUser(merged);
+              try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('user', JSON.stringify(merged)); } catch(e) {}
+            }
+          }
+        } catch (e) {
+          // ignore if patch fails; user will still be in local state
         }
         return { success: true, data };
       } else {
@@ -439,8 +580,52 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(null);
     setSupabaseAccessToken(undefined);
     setDiagnosticCompleted(false);
-    try { if (typeof window !== 'undefined' && window.localStorage) { window.localStorage.removeItem('supabaseAccessToken'); window.localStorage.removeItem('diagnosticCompleted'); } } catch(e) {}
+    try { if (typeof window !== 'undefined' && window.localStorage) { window.localStorage.removeItem('supabaseAccessToken'); window.localStorage.removeItem('diagnosticCompleted'); window.localStorage.removeItem('user'); } } catch(e) {}
   
+  };
+
+  // Fetch profile from backend and merge into user, then persist locally
+  const hydrateProfileFromBackend = async (accessToken: string) => {
+    try {
+      console.debug('[Auth] Hydrate profile -> GET /api/profile', { accessToken: accessToken ? '[present]' : '[missing]' });
+      const resp = await fetch(getApiUrl(`/api/profile?accessToken=${encodeURIComponent(accessToken)}`));
+      if (!resp.ok) {
+        console.warn('[Auth] Hydrate profile FAILED status', resp.status, resp.statusText);
+        return;
+      }
+      const data = await resp.json();
+      const profile = data?.profile || data;
+      console.debug('[Auth] Hydrate profile response', profile);
+      setUser((prev) => {
+        const current = (prev || {}) as User;
+        const next: User = { ...current } as User;
+
+        // fullName (acepta limpiar si backend lo envía null)
+        if (Object.prototype.hasOwnProperty.call(profile, 'full_name') || Object.prototype.hasOwnProperty.call(profile, 'fullName')) {
+          next.fullName = (profile.full_name ?? profile.fullName) ?? undefined;
+        }
+        // carrera / universidad / semestre
+        if (Object.prototype.hasOwnProperty.call(profile, 'carrera')) next.carrera = profile.carrera ?? undefined;
+        if (Object.prototype.hasOwnProperty.call(profile, 'universidad')) next.universidad = profile.universidad ?? undefined;
+        if (Object.prototype.hasOwnProperty.call(profile, 'semestre')) next.semestre = profile.semestre ?? undefined;
+        // photo_url/profileUrl: no hacer fallback al valor previo si backend lo quita
+        if (Object.prototype.hasOwnProperty.call(profile, 'photo_url') || Object.prototype.hasOwnProperty.call(profile, 'profileUrl')) {
+          next.profileUrl = (profile.photo_url ?? profile.profileUrl) ?? undefined;
+        }
+        // description
+        if (Object.prototype.hasOwnProperty.call(profile, 'description')) next.description = profile.description ?? undefined;
+  // intereses eliminados
+        // avatarKey (normaliza snake/camel y permite limpiar)
+        if (Object.prototype.hasOwnProperty.call(profile, 'avatar_key') || Object.prototype.hasOwnProperty.call(profile, 'avatarKey')) {
+          (next as any).avatarKey = (profile.avatar_key ?? profile.avatarKey) ?? undefined;
+        }
+        console.debug('[Auth] Hydrate merged user', next);
+        try { if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem('user', JSON.stringify(next)); } catch(e) {}
+        return next;
+      });
+    } catch (e) {
+      console.error('[Auth] Hydrate profile exception', e);
+    }
   };
 
   return (

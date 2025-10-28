@@ -33,12 +33,6 @@ function UserMenu() {
               <Text style={stylesTop.menuText}>Perfil</Text>
             </Pressable>
           </Link>
-          <Pressable
-            style={({ pressed }) => [stylesTop.menuItem, pressed && stylesTop.menuItemPressed]}
-            onPress={() => { setMenuOpen(false); logout(); }}>
-            <Ionicons name="log-out-outline" size={16} color="#c0353a" />
-            <Text style={[stylesTop.menuText, { color: '#c0353a' }]}>Cerrar sesión</Text>
-          </Pressable>
         </View>
       )}
     </View>
@@ -55,13 +49,13 @@ function ProtectedTabs() {
 
   return (
     <Tabs
+      tabBar={(props: any) => <CustomTabBar {...props} />}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#ffffff',
         tabBarInactiveTintColor: 'rgba(255,255,255,0.75)',
         tabBarStyle: { backgroundColor: '#198754', borderTopColor: '#198754', height: 56, paddingBottom: 6, paddingTop: 6 },
         tabBarButton: HapticTab,
-        tabBar: (props) => <CustomTabBar {...props} />,
       }}>
       <Tabs.Screen
         name="home"
@@ -117,26 +111,15 @@ const stylesTop = StyleSheet.create({
 // Custom bottom tab bar to attach the Perfil dropdown menu and brand styling
 function CustomTabBar({ state, descriptors, navigation }: any) {
   const { logout, user } = useAuth();
-  const [open, setOpen] = useState(false);
-  useEffect(() => { setOpen(false); }, [state.index]);
 
   return (
     <View style={{ position: 'relative' }}>
-      {/* Overlay to close the menu when tapped outside */}
-      {open && (
-        <Pressable onPress={() => setOpen(false)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 56 }} />
-      )}
-
       <View style={{ flexDirection: 'row', backgroundColor: '#198754', borderTopColor: '#198754', borderTopWidth: 1, height: 56 }}>
         {state.routes.map((route: any, index: number) => {
           const { options } = descriptors[route.key];
           const isFocused = state.index === index;
           const color = isFocused ? '#ffffff' : 'rgba(255,255,255,0.85)';
           const onPress = () => {
-            if (route.name === 'perfil') {
-              setOpen((v) => !v);
-              return;
-            }
             const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
             if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
           };
@@ -149,23 +132,6 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
           );
         })}
       </View>
-
-      {open && (
-        <View style={[stylesTop.menu, { right: 12, bottom: 56 + 8 }] }>
-          <Link href={'/(tabs)/perfil'} asChild>
-            <Pressable style={({ pressed }) => [stylesTop.menuItem, pressed && stylesTop.menuItemPressed]} onPress={() => setOpen(false)}>
-              <Ionicons name="person-outline" size={16} color="#0f172a" />
-              <Text style={stylesTop.menuText}>Perfil</Text>
-            </Pressable>
-          </Link>
-          <Pressable
-            style={({ pressed }) => [stylesTop.menuItem, pressed && stylesTop.menuItemPressed]}
-            onPress={() => { setOpen(false); logout(); }}>
-            <Ionicons name="log-out-outline" size={16} color="#c0353a" />
-            <Text style={[stylesTop.menuText, { color: '#c0353a' }]}>Cerrar sesión</Text>
-          </Pressable>
-        </View>
-      )}
     </View>
   );
 }

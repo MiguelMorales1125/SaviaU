@@ -7,9 +7,12 @@ const logoSize = Math.min(Math.max(width * 0.12, 100), 150);
 export const retosStyles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    paddingTop: 12,
+    paddingBottom: 24,
+    paddingLeft: 0,
+    paddingRight: 0,
+    alignItems: 'stretch',
+    backgroundColor: '#ecf8f0',
     minHeight: '100%'
   },
   header: {
@@ -21,7 +24,6 @@ export const retosStyles = StyleSheet.create({
   },
   cardRow: {
     width: '100%',
-    maxWidth: 1200,
     flexDirection: 'column',
     gap: 16,
     alignItems: 'stretch',
@@ -29,15 +31,13 @@ export const retosStyles = StyleSheet.create({
   },
   cardLeft: {
     width: '100%',
-    maxWidth: 920,
-    alignSelf: 'center',
+    alignSelf: 'stretch',
     backgroundColor: '#ffffff',
     padding: 18,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
+    borderRadius: 0,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#e9ecef'
   },
   cardRight: {
     display: 'none'
@@ -47,35 +47,48 @@ export const retosStyles = StyleSheet.create({
     height: '100%'
   },
   cardTitle: {
-    fontSize: 12,
-    color: '#6c757d',
-    fontWeight: '700',
-    marginBottom: 6
+    fontSize: 13,
+    color: '#0d6efd',
+    fontWeight: '800',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
   },
   question: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
     marginBottom: 12,
     color: '#212529'
   },
+  band: {
+    height: 6,
+    width: '100%',
+    backgroundColor: '#e6f4ec',
+    marginBottom: 10
+  },
   optionBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e9ecef'
   },
   option: {
-    backgroundColor: '#f1f3f5',
+    backgroundColor: '#f8f9fa',
   },
   optionDisabled: {
     backgroundColor: '#f8f9fa',
-    opacity: 0.7
+    opacity: 0.7,
+    borderColor: '#f1f3f5'
   },
   optionCorrect: {
-    backgroundColor: '#d1e7dd'
+    backgroundColor: '#d1e7dd',
+    borderColor: '#badbcc'
   },
   optionWrong: {
-    backgroundColor: '#f8d7da'
+    backgroundColor: '#f8d7da',
+    borderColor: '#f5c2c7'
   },
   optionText: {
     color: '#212529',

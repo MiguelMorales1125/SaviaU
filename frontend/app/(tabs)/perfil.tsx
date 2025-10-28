@@ -1,24 +1,39 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, Image, TouchableOpacity, Alert, ScrollView, StyleSheet, Platform, Modal, Pressable, Animated, Dimensions } from "react-native";
 import { useAuth } from "../../context/AuthContext";
+import { getApiUrl } from '../../config/api';
 import { tabsStyles } from '../../styles/tabs.styles';
 import * as ImagePicker from 'expo-image-picker';
+// no router needed here
 
 export default function Perfil() {
-  const { logout, user, updateUser, onboard } = useAuth();
+  const { logout, user, updateUser, onboard, supabaseAccessToken } = useAuth();
 
   const [fullName, setFullName] = useState<string>(user?.fullName || '');
   const [description, setDescription] = useState<string>(user?.description || '');
   const [universidad, setUniversidad] = useState<string>(user?.universidad || '');
   const [carrera, setCarrera] = useState<string>(user?.carrera || '');
   const [semestre, setSemestre] = useState<string>(user?.semestre ? String(user?.semestre) : '');
+  // intereses eliminados
   const [imageUri, setImageUri] = useState<string | undefined>(user?.profileUrl || undefined);
+  // Para web: mantener base64 y mime para construir un Blob/File confiable
+  const [imageBase64, setImageBase64] = useState<string | undefined>(undefined);
+  const [imageMime, setImageMime] = useState<string>('image/jpeg');
+  const [avatarKey, setAvatarKey] = useState<string | undefined>((user as any)?.avatarKey || undefined);
+  const [saving, setSaving] = useState(false);
+  const initialSnapshot = useRef<any>(null);
   const [editing, setEditing] = useState<boolean>(false);
   // Imagen predeterminada
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const defaultAvatar = require('../../assets/images/usuario.png');
+  // Avatares predeterminados con imágenes locales
+  const avatarImages: Record<string, any> = {
+    avatar1: require('../../assets/images/avatar1.png'),
+    avatar2: require('../../assets/images/avatar2.png'),
+    avatar3: require('../../assets/images/avatar3.png'),
+  };
 
-  // Opciones (mismas que en register)
+  // Opciones 
   const carreras: string[] = [
     'Ingeniería de Sistemas',
     'Medicina',
@@ -37,6 +52,8 @@ export default function Perfil() {
     'Autónoma de Nariño',
     'Otra'
   ];
+
+  // Intereses eliminados
 
   // Componente Select similar al utilizado en register/onboard
   const Select = ({ options, selected, onSelect, placeholder }: { options: string[]; selected: string; onSelect: (v: string) => void; placeholder?: string }) => {
@@ -130,14 +147,65 @@ export default function Perfil() {
   };
 
   useEffect(() => {
-    
     setFullName(user?.fullName || '');
     setDescription(user?.description || '');
     setUniversidad(user?.universidad || '');
     setCarrera(user?.carrera || '');
     setSemestre(user?.semestre ? String(user.semestre) : '');
     setImageUri(user?.profileUrl || undefined);
+    setAvatarKey((user as any)?.avatarKey || undefined);
+  // intereses eliminados
+    setImageBase64(undefined);
   }, [user]);
+
+  const startEditing = () => {
+    // capture snapshot to detect unsaved changes
+    initialSnapshot.current = {
+      fullName, universidad, carrera, semestre, imageUri, avatarKey
+    };
+    setEditing(true);
+  };
+
+  const hasUnsavedChanges = () => {
+    const s = initialSnapshot.current;
+    if (!s) return false;
+    return (
+      s.fullName !== fullName || s.universidad !== universidad ||
+      s.carrera !== carrera || s.semestre !== semestre || s.imageUri !== imageUri || s.avatarKey !== avatarKey
+    );
+  };
+
+  const cancelEditing = () => {
+    if (hasUnsavedChanges()) {
+      Alert.alert('Cambios sin guardar', 'Tienes cambios sin guardar. ¿Deseas descartarlos?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Descartar', style: 'destructive', onPress: () => {
+          // revert
+          const s = initialSnapshot.current || {};
+          setFullName(s.fullName || '');
+          setUniversidad(s.universidad || '');
+          setCarrera(s.carrera || '');
+          setSemestre(s.semestre || '');
+          setImageUri(s.imageUri);
+          setAvatarKey(s.avatarKey);
+          setEditing(false);
+        } }
+      ]);
+    } else {
+      setEditing(false);
+    }
+  };
+
+  const handleLogoutPressed = () => {
+    if (editing && hasUnsavedChanges()) {
+      Alert.alert('Cambios sin guardar', 'Tienes cambios sin guardar. ¿Deseas descartarlos y cerrar sesión?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Descartar y cerrar sesión', style: 'destructive', onPress: () => logout() }
+      ]);
+    } else {
+      logout();
+    }
+  };
 
   const pickImage = async () => {
     try {
@@ -151,7 +219,8 @@ export default function Perfil() {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         quality: 0.7,
-      });
+        base64: Platform.OS === 'web' ? true : false,
+      } as any);
 
       // new expo returns result.canceled and result.assets
       // keep it local only (no backend upload yet)
@@ -161,8 +230,19 @@ export default function Perfil() {
       if (!canceled) {
         // prefer assets array
         // @ts-ignore
-        const uri = result.assets && result.assets.length > 0 ? result.assets[0].uri : (result as any).uri;
+        const asset = result.assets && result.assets.length > 0 ? result.assets[0] : undefined;
+        const uri = asset?.uri || (result as any).uri;
         if (uri) setImageUri(uri);
+        if (Platform.OS === 'web' && asset) {
+          // @ts-ignore - expo returns base64 when requested
+          if (asset.base64) setImageBase64(asset.base64 as string);
+          // @ts-ignore
+          if (asset.mimeType) setImageMime(asset.mimeType as string);
+        } else {
+          setImageBase64(undefined);
+        }
+        // if user picks a custom image, clear any avatar selection
+        setAvatarKey(undefined);
       }
     } catch (error) {
       console.warn('Error al seleccionar imagen:', error);
@@ -175,36 +255,156 @@ export default function Perfil() {
       Alert.alert('Validación', 'El nombre completo no puede estar vacío.');
       return;
     }
-
-    // Update local user state only. Backend integration pending endpoint.
     const doSave = async () => {
-      // optimistic local update
-      updateUser({
-        fullName: fullName.trim(),
-        description: description.trim(),
-        universidad: universidad.trim(),
-        carrera: carrera.trim(),
-        semestre: semestre ? Number(semestre) : undefined,
-        profileUrl: imageUri,
-      });
+      if (!supabaseAccessToken) {
+        Alert.alert('Error', 'No se encontró token de acceso. Inicia sesión de nuevo.');
+        return;
+      }
 
-      // If the user is not onboarded and we have an onboard function, try to send to backend
+      setSaving(true);
       try {
-        if (onboard && !user?.onboarded) {
-          const res = await onboard(undefined, fullName.trim(), carrera.trim(), universidad.trim(), Number(semestre) || 0);
-          if (res.success) {
-            Alert.alert('Perfil actualizado', 'Perfil completado correctamente en el servidor.');
-            return;
+  console.debug('[Perfil] Guardando perfil - snapshot', { fullName, universidad, carrera, semestre, avatarKey, imageUri });
+        let uploadedPhotoUrl: string | undefined = undefined;
+
+        // 1️⃣ Subir imagen si es local
+        const isLocal = (u?: string) => {
+          if (!u) return false;
+          return (
+            u.startsWith('file:') ||
+            u.startsWith('content:') ||
+            u.startsWith('data:') ||
+            u.startsWith('blob:') ||
+            u.startsWith('asset:')
+          );
+        };
+
+        if (imageUri && isLocal(imageUri) && !avatarKey) {
+          const form = new FormData();
+          const name = imageUri.split('/').pop() || 'profile.jpg';
+          // En web, necesitamos convertir el uri en Blob/File para que el navegador
+          // establezca correctamente el multipart/form-data en lugar de octet-stream.
+          if (Platform.OS === 'web') {
+            try {
+              let blob: Blob;
+              if (imageBase64) {
+                const byteCharacters = atob(imageBase64);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+                const byteArray = new Uint8Array(byteNumbers);
+                blob = new Blob([byteArray], { type: imageMime || 'image/jpeg' });
+              } else {
+                const res = await fetch(imageUri);
+                blob = await res.blob();
+              }
+              const file = new File([blob], name, { type: (blob as any).type || imageMime || 'image/jpeg' });
+              form.append('file', file);
+            } catch (e) {
+              // Fallback a un Blob vacío si algo falla
+              const empty = new Blob([], { type: imageMime || 'image/jpeg' });
+              const file = new File([empty], name, { type: imageMime || 'image/jpeg' });
+              form.append('file', file);
+            }
           } else {
-            // show message but keep local changes
-            Alert.alert('Guardado local', res.error || 'No se pudo completar perfil en el servidor, cambios guardados localmente.');
-            return;
+            // @ts-ignore - React Native FormData file
+            form.append('file', { uri: imageUri, name, type: 'image/jpeg' });
           }
+
+          const url = getApiUrl('/api/profile/photo') + '?accessToken=' + encodeURIComponent(supabaseAccessToken);
+          console.debug('[Perfil] Subiendo foto -> POST', url);
+          const resp = await fetch(url, {
+            method: 'POST',
+            body: form,
+            // ⚠️ No pongas Content-Type, React Native lo maneja automáticamente (y en web el navegador)
+          });
+
+          if (!resp.ok) {
+            let json: any = {};
+            try {
+              json = await resp.json();
+            } catch (e) {}
+            console.warn('[Perfil] Error subida foto', resp.status, resp.statusText, json);
+            throw new Error(json?.message || 'Error subiendo la foto');
+          }
+
+          const data = await resp.json();
+          console.debug('[Perfil] Foto subida OK', data);
+          uploadedPhotoUrl = data?.photoUrl || data?.profile?.photo_url || undefined;
         }
-        Alert.alert('Guardado', 'Cambios guardados localmente.');
-      } catch (err) {
+
+        // 2️⃣ PATCH: actualizar perfil (siempre JSON; la foto ya se configuró en el paso 1)
+        const patchBody: any = {
+          accessToken: supabaseAccessToken,
+          fullName: fullName.trim(),
+          carrera: carrera.trim(),
+          universidad: universidad.trim(),
+          semestre: semestre ? Number(semestre) : undefined,
+          avatarKey: avatarKey || undefined,
+        };
+  // alias eliminado del payload
+  // intereses eliminados del payload
+
+        console.debug('[Perfil] PATCH /api/profile payload', patchBody);
+        const patchResp = await fetch(getApiUrl('/api/profile'), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patchBody),
+        });
+
+        if (!patchResp.ok) {
+          let json: any = {};
+          try {
+            json = await patchResp.json();
+          } catch (e) {}
+          console.warn('[Perfil] PATCH fallo', patchResp.status, patchResp.statusText, json);
+          const message = json?.message || 'No se pudo actualizar el perfil';
+          throw new Error(message);
+        }
+
+        const patched = await patchResp.json();
+        console.debug('[Perfil] PATCH OK respuesta', patched);
+        const profile = patched?.profile || {};
+
+        // Decidir URL final de perfil y avatarKey respetando exclusividad
+        const serverAvatarKey: string | undefined = (profile.avatar_key ?? undefined) as any;
+        const finalAvatarKey: string | undefined = serverAvatarKey !== undefined ? serverAvatarKey : (avatarKey || undefined);
+        const isRemote = (u?: string) => !!u && /^https?:\/\//i.test(u);
+        const finalProfileUrl: string | undefined = finalAvatarKey
+          ? undefined
+          : (uploadedPhotoUrl ?? profile.photo_url ?? (isRemote(imageUri) ? imageUri : undefined));
+
+        updateUser({
+          fullName: (profile.full_name ?? undefined) || fullName.trim(),
+          carrera: (profile.carrera ?? undefined) || carrera.trim(),
+          universidad: (profile.universidad ?? undefined) || universidad.trim(),
+          semestre: (profile.semestre ?? undefined) || (semestre ? Number(semestre) : undefined),
+          profileUrl: finalProfileUrl,
+          avatarKey: finalAvatarKey,
+          // alias eliminado del merge
+          // intereses eliminados del merge
+        } as any);
+
+        Alert.alert('Guardado', 'Perfil actualizado correctamente.');
+        setEditing(false);
+      } catch (err: any) {
         console.warn('Error al guardar perfil en backend:', err);
-        Alert.alert('Guardado local', 'Ocurrió un error al guardar en el servidor. Cambios guardados localmente.');
+        Alert.alert('Error', err?.message || 'Ocurrió un error al guardar el perfil.');
+        // Fallback: persistir al menos localmente para que permanezca tras reingreso
+        try {
+          const isRemote = (u?: string) => !!u && /^https?:\/\//i.test(u);
+          const fallbackAvatarKey = avatarKey || undefined;
+          const fallbackProfileUrl = fallbackAvatarKey ? undefined : (isRemote(imageUri) ? imageUri : undefined);
+          updateUser({
+            fullName: fullName.trim(),
+            carrera: carrera.trim(),
+            universidad: universidad.trim(),
+            semestre: semestre ? Number(semestre) : undefined,
+            // intereses eliminados
+            avatarKey: fallbackAvatarKey,
+            profileUrl: fallbackProfileUrl,
+          } as any);
+        } catch {}
+      } finally {
+        setSaving(false);
       }
     };
 
@@ -217,13 +417,9 @@ export default function Perfil() {
       <ScrollView contentContainerStyle={styles.container}>
         {!editing ? (
         <View style={styles.viewWrapper}>
-          {/* Acción superior: Cerrar sesión */}
+          {/* Acción superior: botón de Cerrar sesión en esquina derecha */}
           <View style={styles.topActionsRow}>
-            <TouchableOpacity
-              style={styles.logoutTopBtn}
-              onPress={logout}
-              accessibilityLabel="Cerrar sesión"
-            >
+            <TouchableOpacity onPress={handleLogoutPressed} style={styles.logoutTopBtn} accessibilityLabel="Cerrar sesión">
               <Text style={styles.logoutTopText}>Cerrar sesión</Text>
             </TouchableOpacity>
           </View>
@@ -231,7 +427,13 @@ export default function Perfil() {
           <View style={styles.profileCard}>
             {/* Avatar */}
             <View style={{ alignItems: 'center', marginTop: 0 }}>
-              <Image source={imageUri ? { uri: imageUri } : defaultAvatar} style={styles.bigAvatar} />
+              {imageUri ? (
+                <Image source={{ uri: imageUri }} style={styles.bigAvatar} />
+              ) : (avatarKey && avatarImages[avatarKey]) ? (
+                <Image source={avatarImages[avatarKey]} style={styles.bigAvatar} />
+              ) : (
+                <Image source={defaultAvatar} style={styles.bigAvatar} />
+              )}
             </View>
 
             {/* Nombre y líneas secundarias */}
@@ -251,12 +453,10 @@ export default function Perfil() {
               ) : null}
             </View>
 
-            {/* Descripción visible */}
-            {description ? (
-              <View style={styles.aboutBox}>
-                <Text style={styles.aboutText}>{description}</Text>
-              </View>
-            ) : null}
+            {/* Caja informativa simple (sin intereses) */}
+            <View style={styles.aboutBox}>
+              <Text style={styles.aboutText}></Text>
+            </View>
           </View>
 
           {/* Progresos y logros */}
@@ -274,7 +474,7 @@ export default function Perfil() {
             <View style={styles.infoCard}> 
               <View style={styles.cardHeaderRow}>
                 <Text style={styles.cardTitle}>Información personal</Text>
-                <TouchableOpacity onPress={() => setEditing(true)} style={styles.headerBtn} accessibilityLabel="Editar información">
+                <TouchableOpacity onPress={startEditing} style={styles.headerBtn} accessibilityLabel="Editar información">
                   <Text style={styles.headerBtnText}>Editar</Text>
                 </TouchableOpacity>
               </View>
@@ -308,18 +508,26 @@ export default function Perfil() {
             <Text style={[tabsStyles.perfilTitle, styles.header, { marginBottom: 0 }]}>Editar perfil</Text>
             <View style={styles.headerButtonsRow}>
               <TouchableOpacity
-                style={styles.saveHeaderBtn}
-                onPress={() => { onSave(); setEditing(false); }}
+                style={[styles.saveHeaderBtn, saving ? { opacity: 0.7 } : null]}
+                onPress={onSave}
+                disabled={saving}
                 accessibilityLabel="Guardar cambios"
               >
-                <Text style={styles.saveHeaderBtnText}>Guardar cambios</Text>
+                <Text style={styles.saveHeaderBtnText}>{saving ? 'Guardando...' : 'Guardar cambios'}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.logoutHeaderBtn}
-                onPress={logout}
+                onPress={handleLogoutPressed}
                 accessibilityLabel="Cerrar sesión"
               >
                 <Text style={styles.logoutHeaderBtnText}>Cerrar sesión</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.headerBtn, { height: 40 }]}
+                onPress={cancelEditing}
+                accessibilityLabel="Cancelar edición"
+              >
+                <Text style={styles.headerBtnText}>Cancelar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -327,11 +535,22 @@ export default function Perfil() {
           <View style={styles.card}>
             <View style={styles.row}>
               <View style={styles.imageWrapper}>
-                <Image source={imageUri ? { uri: imageUri } : defaultAvatar} style={styles.avatar} />
-                <TouchableOpacity style={styles.pickButton} onPress={pickImage} accessibilityLabel="Seleccionar imagen">
-                  <Text style={styles.pickButtonText}>Seleccionar imagen</Text>
-                </TouchableOpacity>
-              </View>
+                  <Image source={imageUri ? { uri: imageUri } : (avatarKey && avatarImages[avatarKey]) ? avatarImages[avatarKey] : defaultAvatar} style={styles.avatar} />
+                  <TouchableOpacity style={styles.pickButton} onPress={pickImage} accessibilityLabel="Seleccionar imagen">
+                    <Text style={styles.pickButtonText}>Seleccionar imagen</Text>
+                  </TouchableOpacity>
+
+                  <View style={{ marginTop: 12 }}>
+                    <Text style={{ fontWeight: '700', marginBottom: 8 }}>O elige un avatar</Text>
+                    <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', maxWidth: '100%', justifyContent: 'flex-start' }}>
+                      {Object.keys(avatarImages).map(k => (
+                        <TouchableOpacity key={k} onPress={() => { setAvatarKey(k); setImageUri(undefined); setImageBase64(undefined); }} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: avatarKey === k ? '#e6f4ec' : '#f5f5f5', alignItems: 'center', justifyContent: 'center', borderWidth: avatarKey === k ? 2 : 0, borderColor: '#198754', overflow: 'hidden' }} accessibilityLabel={`Seleccionar avatar ${k}`}>
+                          <Image source={avatarImages[k]} style={{ width: 44, height: 44, borderRadius: 22 }} />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                </View>
 
               <View style={styles.infoWrapper}>
                 <Text style={styles.label}>Email</Text>
@@ -340,8 +559,9 @@ export default function Perfil() {
                 <Text style={styles.label}>Nombre completo</Text>
                 <TextInput placeholderTextColor="#999" style={styles.input} value={fullName} onChangeText={setFullName} placeholder="Tu nombre completo" />
 
-                <Text style={styles.label}>Descripción</Text>
-                <TextInput placeholderTextColor="#999" style={[styles.input, styles.multiline]} multiline value={description} onChangeText={setDescription} placeholder="Una breve descripción sobre ti" />
+                {/* Alias eliminado */}
+
+                {/* Descripción removida temporalmente; mostramos mensaje fijo en modo lectura */}
               </View>
             </View>
           </View>
@@ -363,6 +583,8 @@ export default function Perfil() {
               <Select options={Array.from({ length: 10 }, (_, i) => String(i + 1))} selected={semestre} onSelect={setSemestre} placeholder="Seleccione semestre..." />
             </View>
           </View>
+
+          {/* Intereses eliminados */}
 
           {/* Acciones inferiores eliminadas: Cerrar sesión se ubica junto a Guardar cambios en el encabezado */}
         </View>
@@ -527,6 +749,8 @@ const styles = StyleSheet.create({
   topActionsRow: { width: '100%', maxWidth: 920, alignSelf: 'center', marginBottom: 8, alignItems: 'flex-end' },
   logoutTopBtn: { backgroundColor: '#ffe3e3', borderRadius: 10, height: 44, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#ffc9c9' },
   logoutTopText: { color: '#c0353a', fontWeight: '800' },
+  loginTopBtn: { backgroundColor: '#e6f4ec', borderRadius: 10, height: 40, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#cfe7d8' },
+  loginTopText: { color: '#0b6b3b', fontWeight: '800' },
   editHeaderRow: { width: '100%', maxWidth: 980, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   headerButtonsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   saveHeaderBtn: { backgroundColor: '#00c57a', borderRadius: 10, height: 40, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
