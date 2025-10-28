@@ -15,9 +15,9 @@ export const tabsStyles = StyleSheet.create({
     backgroundColor: '#e8fce8',
   },
   homeLogo: {
-    width: 180,
-    height: 180,
-    marginBottom: 24,
+    width: 250,
+    height: 250,
+    marginBottom: -10,
   },
   homeTitle: {
     fontSize: 28,

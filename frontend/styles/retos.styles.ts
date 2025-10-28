@@ -1,6 +1,8 @@
 import { StyleSheet, Dimensions } from 'react-native';
 
 const { width } = Dimensions.get('window');
+// Tamaño del logo de resultados: aumenta en pantallas grandes y se restringe en móviles
+const logoSize = Math.min(Math.max(width * 0.12, 100), 150);
 
 export const retosStyles = StyleSheet.create({
   container: {
@@ -128,16 +130,21 @@ export const retosStyles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: '#198754'
   },
+  resultScreen: {
+    flex: 1,
+    backgroundColor: '#f8f9fa'
+  },
   resultWrapper: {
     padding: 24,
     alignItems: 'center',
-    minHeight: '100%'
+    minHeight: '100%',
+    justifyContent: 'center'
   },
   resultCard: {
     marginTop: 18,
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 12,
+    backgroundColor: 'transparent',
+    padding: 0,
+    borderRadius: 0,
     alignItems: 'center',
     width: 420
   },
@@ -147,9 +154,9 @@ export const retosStyles = StyleSheet.create({
     color: '#111827'
   },
   resultIcon: {
-    width: 84,
-    height: 84,
-    marginBottom: 8
+    width: logoSize,
+    height: logoSize,
+    marginBottom: 10
   },
   trophyText: {
     fontSize: 18,
