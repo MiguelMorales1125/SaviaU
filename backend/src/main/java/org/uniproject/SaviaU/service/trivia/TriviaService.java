@@ -17,6 +17,7 @@ import org.uniproject.SaviaU.service.progress.ProgressService;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("rawtypes")
 public class TriviaService {
 
     private final SupabaseClients clients;
@@ -64,7 +65,9 @@ public class TriviaService {
         return qMono.flatMap(qList -> {
             if (qList.isEmpty()) return Mono.just(List.of());
             List<String> qIds = qList.stream().map(m -> (String) m.get("id")).collect(Collectors.toList());
-            String inParam = "in.(" + String.join(",", qIds) + ")";
+            String inParam = "in.(" + qIds.stream()
+                    .map(id -> "\"" + id + "\"")
+                    .collect(Collectors.joining(",")) + ")";
             Mono<List<Map>> oMono = clients.getDbAdmin().get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/trivia_options")
@@ -224,6 +227,15 @@ public class TriviaService {
                     answerRow.put("selected_option_id", request.getSelectedOptionId());
                     answerRow.put("is_correct", computedIsCorrect);
 
+                    TriviaAnswerResponse response = TriviaAnswerResponse.builder()
+                            .attemptId(request.getAttemptId())
+                            .questionId(request.getQuestionId())
+                            .selectedOptionId(request.getSelectedOptionId())
+                            .correct(computedIsCorrect)
+                            .explanation(explanation)
+                            .correctOptionId(correctOptionId)
+                            .build();
+
                     return clients.getDbAdmin().post()
                             .uri(uriBuilder -> uriBuilder
                                     .path("/trivia_answers")
@@ -234,14 +246,7 @@ public class TriviaService {
                             .retrieve()
                             .bodyToMono(String.class)
                             .onErrorResume(WebClientResponseException.class, ex -> Mono.just(""))
-                            .map(u -> TriviaAnswerResponse.builder()
-                                    .attemptId(request.getAttemptId())
-                                    .questionId(request.getQuestionId())
-                                    .selectedOptionId(request.getSelectedOptionId())
-                                    .correct(computedIsCorrect)
-                                    .explanation(explanation)
-                                    .correctOptionId(correctOptionId)
-                                    .build());
+                            .thenReturn(response);
                 });
             });
         });
@@ -435,12 +440,10 @@ public class TriviaService {
             return attemptsMono.flatMap(attempts -> {
                 int totalAttempts = attempts.size();
                 double avg = attempts.stream()
-                        .map(m -> (Number) m.getOrDefault("score_percent", 0))
-                        .mapToDouble(Number::doubleValue)
+                        .mapToDouble(m -> toDouble(m.get("score_percent")))
                         .average().orElse(0.0);
                 double best = attempts.stream()
-                        .map(m -> (Number) m.getOrDefault("score_percent", 0))
-                        .mapToDouble(Number::doubleValue)
+                        .mapToDouble(m -> toDouble(m.get("score_percent")))
                         .max().orElse(0.0);
                 Instant lastAt = attempts.stream()
                         .map(m -> (String) m.get("completed_at"))
@@ -461,7 +464,10 @@ public class TriviaService {
                             .totalCorrect(0)
                             .build());
                 }
-                String inAttempts = "in.(" + attempts.stream().map(m -> (String) m.get("id")).collect(Collectors.joining(",")) + ")";
+                String inAttempts = "in.(" + attempts.stream()
+                        .map(m -> (String) m.get("id"))
+                        .map(id -> "\"" + id + "\"")
+                        .collect(Collectors.joining(",")) + ")";
                 Mono<List<Map>> ansMono = clients.getDbAdmin().get()
                         .uri(uriBuilder -> uriBuilder
                                 .path("/trivia_answers")
@@ -498,4 +504,17 @@ public class TriviaService {
                 .limit(3)
                 .collect(Collectors.toList());
     }
+
+        private double toDouble(Object value) {
+                if (value == null) return 0.0;
+                if (value instanceof Number n) return n.doubleValue();
+                if (value instanceof String s) {
+                        try {
+                                return Double.parseDouble(s);
+                        } catch (NumberFormatException ignored) {
+                                return 0.0;
+                        }
+                }
+                return 0.0;
+        }
 }

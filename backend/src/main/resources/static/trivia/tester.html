@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prueba de Trivias SaviaU</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #e2e8f0;
+      --accent: #38bdf8;
+      --success: #22c55e;
+      --error: #ef4444;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, rgba(15,23,42,1) 0%, rgba(30,41,59,1) 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    h1 {
+      font-size: 2.1rem;
+      margin-bottom: 4px;
+    }
+    p.description {
+      color: var(--muted);
+      margin-top: 0;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: rgba(15,23,42,0.55);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(148,163,184,0.12);
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 22px;
+      box-shadow: 0 24px 60px rgba(15,23,42,0.45);
+    }
+    .row { display: flex; gap: 20px; flex-wrap: wrap; }
+    .row .card { flex: 1 1 320px; }
+    label { display: block; font-weight: 600; margin-bottom: 6px; }
+    input[type="text"], input[type="url"], textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(148,163,184,0.35);
+      background: rgba(15,23,42,0.5);
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    input[type="text"]:focus, input[type="url"]:focus, textarea:focus {
+      outline: 2px solid rgba(56,189,248,0.6);
+      border-color: rgba(56,189,248,0.8);
+      box-shadow: 0 0 0 8px rgba(56,189,248,0.1);
+    }
+    textarea { resize: vertical; min-height: 120px; }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 12px;
+      padding: 10px 18px;
+      font-weight: 600;
+      background: linear-gradient(90deg, rgba(56,189,248,1) 0%, rgba(37,99,235,1) 100%);
+      color: #0f172a;
+      transition: transform 120ms ease, box-shadow 120ms ease;
+    }
+    button.secondary {
+      background: transparent;
+      border: 1px solid rgba(148,163,184,0.4);
+      color: var(--muted);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .button-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      background: rgba(15,23,42,0.65);
+      border-radius: 14px;
+      border: 1px solid rgba(148,163,184,0.18);
+      padding: 16px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      max-height: 360px;
+      overflow: auto;
+    }
+    .status {
+      font-size: 0.85rem;
+      margin-top: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .status.ok { color: var(--success); }
+    .status.error { color: var(--error); }
+    .question-list { list-style: none; padding: 0; margin: 12px 0 0; }
+    .question-list li {
+      padding: 10px;
+      background: rgba(15,23,42,0.45);
+      border: 1px solid rgba(148,163,184,0.15);
+      border-radius: 10px;
+      margin-bottom: 8px;
+    }
+    .question-list li strong { color: var(--accent); }
+    code.inline { font-family: "Fira Code", monospace; background: rgba(148,163,184,0.15); padding: 2px 6px; border-radius: 6px; }
+    footer { margin-top: 28px; color: rgba(148,163,184,0.65); font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <h1>Tester de Trivias SaviaU</h1>
+  <p class="description">Comprueba rápidamente todos los endpoints de trivia con tu token de Supabase. Ideal para QA manual.</p>
+
+  <div class="card">
+    <label for="baseUrl">Base URL del backend (sin <code class="inline">/api</code>):</label>
+    <input type="url" id="baseUrl" value="http://localhost:8080" placeholder="https://tu-backend.com" />
+
+    <label for="accessToken" style="margin-top:12px;">Supabase access token (user):</label>
+    <input type="text" id="accessToken" placeholder="pega aquí el access_token de Supabase" />
+
+    <div class="status" id="authStatus">Token no verificado</div>
+  </div>
+
+  <div class="card">
+    <h2>Login rápido (usa /api/auth/login)</h2>
+    <label for="loginEmail">Email:</label>
+    <input type="text" id="loginEmail" placeholder="usuario@example.com" />
+
+    <label for="loginPassword" style="margin-top:8px;">Contraseña:</label>
+    <input type="password" id="loginPassword" placeholder="********" />
+
+    <div class="button-row">
+      <button id="btnLogin">Iniciar sesión</button>
+      <button class="secondary" id="btnLogout">Limpiar token</button>
+    </div>
+    <div class="status" id="loginStatus">Sin iniciar sesión</div>
+    <pre id="loginOutput"></pre>
+  </div>
+
+  <div class="row">
+    <div class="card">
+      <h2>1. Cargar sets</h2>
+      <button id="btnLoadSets">GET /api/trivia/sets</button>
+      <div class="status" id="setsStatus">Sin ejecutar</div>
+      <pre id="setsOutput"></pre>
+    </div>
+
+    <div class="card">
+      <h2>2. Cargar preguntas</h2>
+      <label for="setId">Set ID:</label>
+      <input type="text" id="setId" placeholder="Selecciona un set primero" />
+      <button id="btnLoadQuestions">GET /api/trivia/{setId}/questions</button>
+      <div class="status" id="questionsStatus">Sin ejecutar</div>
+      <ul class="question-list" id="questionList"></ul>
+      <pre id="questionsOutput"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>3. Flujo completo</h2>
+    <div class="button-row">
+      <button id="btnStart">POST /api/trivia/start</button>
+      <button id="btnAnswer" disabled>POST /api/trivia/answer</button>
+      <button id="btnFinish" disabled>POST /api/trivia/finish</button>
+      <button id="btnResult" disabled>GET /api/trivia/result</button>
+      <button class="secondary" id="btnResetFlow">Reiniciar flujo</button>
+    </div>
+    <div class="status" id="flowStatus">Sin ejecutar</div>
+    <pre id="flowOutput"></pre>
+  </div>
+
+  <div class="card">
+    <h2>4. Estadísticas del usuario</h2>
+    <button id="btnStats">GET /api/trivia/stats</button>
+    <div class="status" id="statsStatus">Sin ejecutar</div>
+    <pre id="statsOutput"></pre>
+  </div>
+
+  <footer>
+    Consejos:
+    <ul>
+      <li>Llena primero el token para habilitar start/answer/finish.</li>
+      <li>La primera pregunta y opción se seleccionan automáticamente para acelerar la prueba.</li>
+      <li>Abre las herramientas del navegador para ver cada petición en el network inspector si necesitas más detalles.</li>
+    </ul>
+  </footer>
+
+  <script>
+    const el = (id) => document.getElementById(id);
+    const state = {
+      baseUrl: el('baseUrl').value.trim(),
+      token: '',
+      email: '',
+      password: '',
+      setId: '',
+      attemptId: '',
+      lastQuestion: null,
+      stats: null,
+    };
+
+    const endpoints = {
+      sets: () => `${state.baseUrl}/api/trivia/sets`,
+      questions: (set) => `${state.baseUrl}/api/trivia/${encodeURIComponent(set)}/questions`,
+      start: () => `${state.baseUrl}/api/trivia/start`,
+      answer: () => `${state.baseUrl}/api/trivia/answer`,
+      finish: () => `${state.baseUrl}/api/trivia/finish`,
+      result: (attempt) => `${state.baseUrl}/api/trivia/result?accessToken=${encodeURIComponent(state.token)}&attemptId=${encodeURIComponent(attempt)}`,
+      stats: () => `${state.baseUrl}/api/trivia/stats?accessToken=${encodeURIComponent(state.token)}`,
+      login: () => `${state.baseUrl}/api/auth/login`,
+    };
+
+    function setStatus(id, message, ok) {
+      const elStatus = el(id);
+      elStatus.textContent = message;
+      elStatus.classList.remove('ok', 'error');
+      if (ok === true) elStatus.classList.add('ok');
+      if (ok === false) elStatus.classList.add('error');
+    }
+
+    function showJson(id, data) {
+      el(id).textContent = data ? JSON.stringify(data, null, 2) : '';
+    }
+
+    function handleError(where, err) {
+      const message = err?.message || String(err);
+      console.error(`[${where}]`, err);
+      return message;
+    }
+
+    async function parseJsonSafe(res) {
+      let text = '';
+      try {
+        text = await res.text();
+      } catch (err) {
+        throw new Error('No se pudo leer la respuesta del servidor');
+      }
+      if (!text || !text.trim()) return null;
+      try {
+        return JSON.parse(text);
+      } catch (err) {
+        throw new Error('Respuesta del servidor no es JSON válido');
+      }
+    }
+
+    function refreshButtonStates() {
+      const hasToken = Boolean(state.token);
+      const hasAttempt = Boolean(state.attemptId);
+      const hasQuestion = Boolean(state.lastQuestion);
+      el('btnStart').disabled = !hasToken || !state.setId;
+      el('btnAnswer').disabled = !(hasToken && hasAttempt && hasQuestion);
+      el('btnFinish').disabled = !(hasToken && hasAttempt);
+      el('btnResult').disabled = !(hasToken && hasAttempt);
+      setStatus('authStatus', hasToken ? 'Token listo' : 'Token no verificado', hasToken);
+    }
+
+    function autoFillQuestions(list) {
+      if (!Array.isArray(list) || !list.length) return;
+      const first = list[0];
+      state.lastQuestion = null;
+      const ul = el('questionList');
+      ul.innerHTML = '';
+      list.forEach((q, idx) => {
+        const li = document.createElement('li');
+        const optPreview = q.options?.map(o => `${o.text}`).join(' | ') || 'No hay opciones';
+        li.innerHTML = `<strong>${idx + 1}. </strong>${q.prompt}<br/><small>${optPreview}</small>`;
+        ul.appendChild(li);
+      });
+      if (first && Array.isArray(first.options) && first.options.length) {
+        state.lastQuestion = {
+          questionId: first.id,
+          optionId: first.options[0].id,
+        };
+      }
+      refreshButtonStates();
+    }
+
+    el('baseUrl').addEventListener('change', (ev) => {
+      state.baseUrl = ev.target.value.trim().replace(/\/$/, '');
+    });
+
+    el('accessToken').addEventListener('input', (ev) => {
+      state.token = ev.target.value.trim();
+      refreshButtonStates();
+    });
+
+    el('loginEmail').addEventListener('input', (ev) => {
+      state.email = ev.target.value.trim();
+    });
+
+    el('loginPassword').addEventListener('input', (ev) => {
+      state.password = ev.target.value;
+    });
+
+    el('btnLogin').addEventListener('click', async () => {
+      if (!state.email || !state.password) {
+        setStatus('loginStatus', 'Ingresa email y contraseña', false);
+        return;
+      }
+      try {
+        setStatus('loginStatus', 'Iniciando sesión...');
+        const res = await fetch(endpoints.login(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ email: state.email, password: state.password }),
+        });
+        const data = await parseJsonSafe(res);
+        if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+        showJson('loginOutput', data);
+        const token = data?.supabaseAccessToken || data?.accessToken || data?.appToken;
+        if (!token) throw new Error('El backend no devolvió access_token');
+        state.token = token;
+        el('accessToken').value = token;
+        refreshButtonStates();
+        setStatus('loginStatus', 'Login exitoso, token listo', true);
+      } catch (err) {
+        setStatus('loginStatus', handleError('login', err), false);
+      }
+    });
+
+    el('btnLogout').addEventListener('click', () => {
+      state.token = '';
+      el('accessToken').value = '';
+      showJson('loginOutput', null);
+      setStatus('loginStatus', 'Token limpiado');
+      refreshButtonStates();
+    });
+
+    el('setId').addEventListener('input', (ev) => {
+      state.setId = ev.target.value.trim();
+      refreshButtonStates();
+    });
+
+    el('btnLoadSets').addEventListener('click', async () => {
+      try {
+        setStatus('setsStatus', 'Cargando sets...');
+        const res = await fetch(endpoints.sets());
+        const data = await parseJsonSafe(res);
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        showJson('setsOutput', data);
+        setStatus('setsStatus', `OK (${data.length} sets)`, true);
+        if (data.length) {
+          state.setId = data[0].id;
+          el('setId').value = state.setId;
+          refreshButtonStates();
+        }
+      } catch (err) {
+        setStatus('setsStatus', handleError('loadSets', err), false);
+      }
+    });
+
+    el('btnLoadQuestions').addEventListener('click', async () => {
+      if (!state.setId) {
+        setStatus('questionsStatus', 'Primero selecciona un set', false);
+        return;
+      }
+      try {
+        setStatus('questionsStatus', 'Cargando preguntas...');
+        const res = await fetch(endpoints.questions(state.setId));
+        const data = await parseJsonSafe(res);
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        showJson('questionsOutput', data);
+        setStatus('questionsStatus', `OK (${data.length} preguntas)`, true);
+        autoFillQuestions(data);
+      } catch (err) {
+        setStatus('questionsStatus', handleError('loadQuestions', err), false);
+      }
+    });
+
+    el('btnStart').addEventListener('click', async () => {
+      try {
+        setStatus('flowStatus', 'Iniciando intento...');
+        const payload = { accessToken: state.token, setId: state.setId };
+        const res = await fetch(endpoints.start(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await parseJsonSafe(res);
+        if (!res.ok || !data?.attemptId) {
+          const msg = data?.message || `HTTP ${res.status}`;
+          throw new Error(msg);
+        }
+        state.attemptId = data.attemptId;
+        showJson('flowOutput', data);
+        setStatus('flowStatus', `Intento iniciado (${state.attemptId})`, true);
+        refreshButtonStates();
+      } catch (err) {
+        setStatus('flowStatus', handleError('start', err), false);
+      }
+    });
+
+    el('btnAnswer').addEventListener('click', async () => {
+      if (!state.lastQuestion) {
+        setStatus('flowStatus', 'No hay pregunta precargada', false);
+        return;
+      }
+      try {
+        setStatus('flowStatus', 'Enviando respuesta...');
+        const payload = {
+          accessToken: state.token,
+          attemptId: state.attemptId,
+          questionId: state.lastQuestion.questionId,
+          selectedOptionId: state.lastQuestion.optionId,
+        };
+        const res = await fetch(endpoints.answer(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await parseJsonSafe(res);
+        const ok = res.ok && typeof data?.correct === 'boolean';
+        if (ok) {
+          setStatus('flowStatus', data.correct ? 'Respuesta correcta' : 'Respuesta incorrecta', true);
+        } else {
+          const msg = data?.message || `HTTP ${res.status}`;
+          setStatus('flowStatus', `Error al responder: ${msg}`, false);
+        }
+        showJson('flowOutput', data);
+      } catch (err) {
+        setStatus('flowStatus', handleError('answer', err), false);
+      }
+    });
+
+    el('btnFinish').addEventListener('click', async () => {
+      try {
+        setStatus('flowStatus', 'Finalizando intento...');
+        const payload = { accessToken: state.token, attemptId: state.attemptId };
+        const res = await fetch(endpoints.finish(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await parseJsonSafe(res);
+        const ok = res.ok && typeof data?.scorePercent === 'number';
+        if (ok) {
+          setStatus('flowStatus', `Intento finalizado (${data.scorePercent.toFixed(1)}%)`, true);
+        } else {
+          const msg = data?.message || `HTTP ${res.status}`;
+          setStatus('flowStatus', `Error al finalizar: ${msg}`, false);
+        }
+        showJson('flowOutput', data);
+      } catch (err) {
+        setStatus('flowStatus', handleError('finish', err), false);
+      }
+    });
+
+    el('btnResult').addEventListener('click', async () => {
+      try {
+        setStatus('flowStatus', 'Recuperando resultado...');
+        const res = await fetch(endpoints.result(state.attemptId));
+        const data = await parseJsonSafe(res);
+        if (!res.ok) {
+          const msg = data?.message || `HTTP ${res.status}`;
+          setStatus('flowStatus', `Error al recuperar resultado: ${msg}`, false);
+        } else {
+          showJson('flowOutput', data);
+          setStatus('flowStatus', 'Resultado recuperado', true);
+        }
+      } catch (err) {
+        setStatus('flowStatus', handleError('result', err), false);
+      }
+    });
+
+    el('btnResetFlow').addEventListener('click', () => {
+      state.attemptId = '';
+      state.lastQuestion = null;
+      showJson('flowOutput', null);
+      setStatus('flowStatus', 'Flujo reiniciado');
+      refreshButtonStates();
+    });
+
+    el('btnStats').addEventListener('click', async () => {
+      try {
+        setStatus('statsStatus', 'Consultando estadísticas...');
+        const res = await fetch(endpoints.stats());
+        const data = await parseJsonSafe(res);
+        if (!res.ok) {
+          const msg = data?.message || `HTTP ${res.status}`;
+          setStatus('statsStatus', `Error: ${msg}`, false);
+        } else {
+          showJson('statsOutput', data);
+          setStatus('statsStatus', 'Estadísticas cargadas', true);
+        }
+      } catch (err) {
+        setStatus('statsStatus', handleError('stats', err), false);
+      }
+    });
+
+    refreshButtonStates();
+  </script>
+</body>
+</html>

@@ -36,41 +36,41 @@ public class TriviaController {
 
     // Iniciar intento de trivia
     @PostMapping("/start")
-    public Mono<ResponseEntity<TriviaStartResponse>> start(@RequestBody TriviaStartRequest request) {
+    public Mono<ResponseEntity<Object>> start(@RequestBody TriviaStartRequest request) {
         return triviaService.start(request)
-                .map(ResponseEntity::ok)
-                .onErrorReturn(ResponseEntity.badRequest().build());
+                .map(body -> ResponseEntity.ok().body((Object) body))
+                .onErrorResume(ex -> Mono.just(ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()))));
     }
 
     // Responder una pregunta (retroalimentación inmediata)
     @PostMapping("/answer")
-    public Mono<ResponseEntity<TriviaAnswerResponse>> answer(@RequestBody TriviaAnswerRequest request) {
+    public Mono<ResponseEntity<Object>> answer(@RequestBody TriviaAnswerRequest request) {
         return triviaService.answer(request)
-                .map(ResponseEntity::ok)
-                .onErrorReturn(ResponseEntity.badRequest().build());
+                .map(body -> ResponseEntity.ok().body((Object) body))
+                .onErrorResume(ex -> Mono.just(ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()))));
     }
 
     // Finalizar intento y obtener resultado
     @PostMapping("/finish")
-    public Mono<ResponseEntity<TriviaResultDto>> finish(@RequestBody TriviaFinishRequest request) {
+    public Mono<ResponseEntity<Object>> finish(@RequestBody TriviaFinishRequest request) {
         return triviaService.finish(request)
-                .map(ResponseEntity::ok)
-                .onErrorReturn(ResponseEntity.badRequest().build());
+                .map(body -> ResponseEntity.ok().body((Object) body))
+                .onErrorResume(ex -> Mono.just(ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()))));
     }
 
     // Obtener resultado de un intento (requiere accessToken y attemptId)
     @GetMapping("/result")
-    public Mono<ResponseEntity<TriviaResultDto>> getResult(@RequestParam String accessToken, @RequestParam String attemptId) {
+    public Mono<ResponseEntity<Object>> getResult(@RequestParam String accessToken, @RequestParam String attemptId) {
         return triviaService.getResult(accessToken, attemptId)
-                .map(ResponseEntity::ok)
-                .onErrorReturn(ResponseEntity.status(404).build());
+                .map(body -> ResponseEntity.ok().body((Object) body))
+                .onErrorResume(ex -> Mono.just(ResponseEntity.status(404).body(Map.of("message", ex.getMessage()))));
     }
 
     @GetMapping("/stats")
-    public Mono<ResponseEntity<TriviaStatsDto>> getStats(@RequestParam String accessToken) {
+    public Mono<ResponseEntity<Object>> getStats(@RequestParam String accessToken) {
         return triviaService.getStats(accessToken)
-                .map(ResponseEntity::ok)
-                .onErrorReturn(ResponseEntity.status(400).build());
+                .map(body -> ResponseEntity.ok().body((Object) body))
+                .onErrorResume(ex -> Mono.just(ResponseEntity.status(400).body(Map.of("message", ex.getMessage()))));
     }
 }
 
