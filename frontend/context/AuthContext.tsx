@@ -123,6 +123,76 @@ export function AuthProvider({ children }: AuthProviderProps) {
     checkInitialAuthState();
   }, []);
 
+  const refreshSupabaseSession = async (reason: string, refreshOverride?: string): Promise<string | null> => {
+    let refreshTokenToUse = refreshOverride;
+    if (!refreshTokenToUse) {
+      if (supabaseRefreshToken) {
+        refreshTokenToUse = supabaseRefreshToken;
+      } else {
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            refreshTokenToUse = window.localStorage.getItem('supabaseRefreshToken') || undefined;
+          }
+        } catch (e) {
+          // ignore storage errors
+        }
+      }
+    }
+
+    if (!refreshTokenToUse) {
+      return null;
+    }
+
+    try {
+      console.debug(`[Auth] Refresh Supabase session (${reason})`);
+      const resp = await fetch(getApiUrl('/api/auth/token/refresh'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: refreshTokenToUse })
+      });
+
+      if (!resp.ok) {
+        const text = await resp.text();
+        console.warn('[Auth] Refresh session failed', resp.status, resp.statusText, text);
+        if (resp.status === 401) {
+          logout();
+        }
+        return null;
+      }
+
+      const data = await resp.json();
+      const newAccess = data?.supabaseAccessToken || data?.accessToken || data?.appToken;
+      const newRefresh = data?.refreshToken || refreshTokenToUse;
+
+      if (newAccess) {
+        setSupabaseAccessToken(newAccess);
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem('supabaseAccessToken', newAccess);
+          }
+        } catch (e) {
+          // ignore storage failures
+        }
+      }
+
+      if (newRefresh) {
+        setSupabaseRefreshToken(newRefresh);
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem('supabaseRefreshToken', newRefresh);
+          }
+        } catch (e) {
+          // ignore storage failures
+        }
+      }
+
+      return newAccess ?? null;
+    } catch (err) {
+      console.error('[Auth] Refresh session exception', err);
+      return null;
+    }
+  };
+
   const checkInitialAuthState = async () => {
     try {
       console.log('Verificando estado inicial de autenticación...');
@@ -130,6 +200,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       let t: string | null = null;
       let d: string | null = null;
       let cachedUserJson: string | null = null;
+      let rt: string | null = null;
       let at: string | null = null;
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
@@ -137,6 +208,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           d = window.localStorage.getItem('diagnosticCompleted');
           cachedUserJson = window.localStorage.getItem('user');
           at = window.localStorage.getItem('adminToken');
+          rt = window.localStorage.getItem('supabaseRefreshToken');
           if (t) setSupabaseAccessToken(t);
           if (at) {
             setAdminToken(at);
@@ -147,6 +219,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
           if (d && !at) setDiagnosticCompleted(d === 'true');
           if (cachedUserJson) {
             try { setUser(JSON.parse(cachedUserJson)); } catch(e) {}
+          }
+          if (rt) setSupabaseRefreshToken(rt);
+
+          // Before hydrating or making backend calls, attempt to refresh the
+          // Supabase session so we avoid expired tokens right after reload.
+          if (rt) {
+            try {
+              const refreshed = await refreshSupabaseSession('initial-load', rt);
+              if (refreshed) {
+                t = refreshed;
+              }
+            } catch (e) {
+              // ignore refresh failures here; hydrate will retry/cleanup if needed
+            }
           }
 
           // If we have a token but no persisted diagnostic flag, ask the backend
@@ -185,9 +271,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // ignore
       }
 
-      // If we started a diagnostic status check above, wait for it to finish
-      // but cap the wait with a reasonable timeout so the app doesn't stall.
-  const timeoutMs = 12000; // maximum wait for backend status (shows loader during wait)
+        // If we started a diagnostic status check above, wait for it to finish
+        // but cap the wait with a reasonable timeout so the app doesn't stall.
+        const timeoutMs = 12000; // maximum wait for backend status (shows loader during wait)
       try {
         if (t && !d) {
           // race the fetch against a timeout
@@ -634,23 +720,38 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const logout = () => {
+  function logout() {
     console.log('Cerrando sesión...');
     setUser(null);
     setSupabaseAccessToken(undefined);
+    setSupabaseRefreshToken(undefined);
     setAdminToken(undefined);
     setDiagnosticCompleted(false);
-    try { if (typeof window !== 'undefined' && window.localStorage) { window.localStorage.removeItem('supabaseAccessToken'); window.localStorage.removeItem('adminToken'); window.localStorage.removeItem('diagnosticCompleted'); window.localStorage.removeItem('user'); } } catch(e) {}
-  
-  };
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem('supabaseAccessToken');
+        window.localStorage.removeItem('supabaseRefreshToken');
+        window.localStorage.removeItem('adminToken');
+        window.localStorage.removeItem('diagnosticCompleted');
+        window.localStorage.removeItem('user');
+      }
+    } catch(e) {}
+  }
 
   // Fetch profile from backend and merge into user, then persist locally
-  const hydrateProfileFromBackend = async (accessToken: string) => {
+  const hydrateProfileFromBackend = async (accessToken: string, options?: { retryOnUnauthorized?: boolean }) => {
+    const allowRetry = options?.retryOnUnauthorized ?? true;
     try {
       console.debug('[Auth] Hydrate profile -> GET /api/profile', { accessToken: accessToken ? '[present]' : '[missing]' });
       const resp = await fetch(getApiUrl(`/api/profile?accessToken=${encodeURIComponent(accessToken)}`));
       if (!resp.ok) {
         console.warn('[Auth] Hydrate profile FAILED status', resp.status, resp.statusText);
+        if (allowRetry && (resp.status === 400 || resp.status === 401)) {
+          const refreshed = await refreshSupabaseSession('hydrate-profile');
+          if (refreshed) {
+            return hydrateProfileFromBackend(refreshed, { retryOnUnauthorized: false });
+          }
+        }
         return;
       }
       const data = await resp.json();

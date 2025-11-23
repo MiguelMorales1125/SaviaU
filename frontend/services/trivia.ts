@@ -97,7 +97,17 @@ export class TriviaApi {
 
     if (!res.ok) {
       console.error('❌ Error HTTP al enviar la respuesta:', res.status, res.statusText);
-      throw new Error('No se pudo enviar la respuesta');
+      let message = 'No se pudo enviar la respuesta';
+      try {
+        const payload = await res.json();
+        if (payload?.message) message = payload.message;
+      } catch (_) {
+        try {
+          const text = await res.text();
+          if (text) message = text;
+        } catch (_) {}
+      }
+      throw new Error(message);
     }
 
     const data = await res.json();

@@ -22,6 +22,12 @@ export const API_CONFIG = {
       GOOGLE_FINISH: '/api/auth/google/finish',
       ONBOARD: '/api/auth/onboard',
       ADMIN_LOGIN: '/api/admin/auth/login',
+      ADMIN_TRIVIA_SETS: '/api/admin/trivia/sets',
+      ADMIN_TRIVIA_QUESTIONS: '/api/admin/trivia/questions',
+      ADMIN_TRIVIA_LEADERBOARD: '/api/admin/trivia/leaderboard',
+      ADMIN_TRIVIA_PROGRESS: '/api/admin/trivia/progress',
+      ADMIN_TEMATICAS_AREAS: '/api/admin/tematicas/areas',
+      ADMIN_TEMATICAS_RESOURCES: '/api/admin/tematicas/resources',
   }
 };
 

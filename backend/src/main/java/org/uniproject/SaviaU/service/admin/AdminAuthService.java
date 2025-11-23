@@ -13,6 +13,7 @@ import org.uniproject.SaviaU.dto.AdminLoginRequest;
 import org.uniproject.SaviaU.dto.AdminLoginResponse;
 import org.uniproject.SaviaU.dto.AdminPasswordResetRequest;
 import org.uniproject.SaviaU.dto.PasswordApplyRequest;
+import org.uniproject.SaviaU.dto.admin.AdminUserDto;
 import org.uniproject.SaviaU.security.util.JwtUtil;
 import reactor.core.publisher.Mono;
 
@@ -131,4 +132,83 @@ public class AdminAuthService {
         // Stateless: el cliente debe descartar el adminToken. Aquí solo devolvemos OK.
         return Mono.just("OK");
     }
+
+        public Mono<AdminUserDto> requireAdmin(String adminToken) {
+                if (adminToken == null || adminToken.isBlank()) {
+                        return Mono.error(new RuntimeException("Token de administrador requerido"));
+                }
+
+                final Map<String, Object> claims;
+                try {
+                        claims = JwtUtil.validateHs256AndGetClaims(adminToken, clients.getProps().getJwtSecret());
+                } catch (RuntimeException ex) {
+                        return Mono.error(new RuntimeException("Token inválido"));
+                }
+
+                Object role = claims.get("role");
+                if (role == null || !"admin".equals(String.valueOf(role))) {
+                        return Mono.error(new RuntimeException("Rol no autorizado"));
+                }
+
+                String adminId = claims.get("sub") != null ? String.valueOf(claims.get("sub")) : null;
+                String emailClaim = claims.get("email") != null ? String.valueOf(claims.get("email")) : null;
+
+                if ((adminId == null || adminId.isBlank()) && (emailClaim == null || emailClaim.isBlank())) {
+                        return Mono.error(new RuntimeException("Claim de identidad faltante"));
+                }
+
+                Mono<List<Map<String, Object>>> adminLookup = clients.getDbAdmin().get()
+                                .uri(uriBuilder -> {
+                                        var builder = uriBuilder
+                                                        .path("/admin_users")
+                                                        .queryParam("select", "id,email,full_name,is_active,last_login_at");
+                                        if (adminId != null && !adminId.isBlank()) {
+                                                builder.queryParam("id", "eq." + adminId);
+                                        } else {
+                                                builder.queryParam("email", "eq." + emailClaim);
+                                        }
+                                        return builder.build();
+                                })
+                                .retrieve()
+                                .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+
+                return adminLookup.flatMap(rows -> {
+                        if (rows.isEmpty()) {
+                                return Mono.error(new RuntimeException("No estás autorizado"));
+                        }
+                        Map<String, Object> row = rows.get(0);
+                        if (!Boolean.TRUE.equals(row.get("is_active"))) {
+                                return Mono.error(new RuntimeException("Cuenta de administrador inactiva"));
+                        }
+
+                        Instant lastLogin = null;
+                        Object rawLast = row.get("last_login_at");
+                        if (rawLast instanceof String s && !s.isBlank()) {
+                                try { lastLogin = Instant.parse(s); } catch (Exception ignored) {}
+                        }
+
+                        AdminUserDto dto = AdminUserDto.builder()
+                                        .id((String) row.get("id"))
+                                        .email((String) (row.get("email") != null ? row.get("email") : emailClaim))
+                                        .fullName((String) row.get("full_name"))
+                                        .active(true)
+                                        .lastLoginAt(lastLogin)
+                                        .role("admin")
+                                        .build();
+
+                        Mono<String> touch = clients.getDbAdmin().patch()
+                                        .uri(uriBuilder -> uriBuilder
+                                                        .path("/admin_users")
+                                                        .queryParam("id", "eq." + dto.getId())
+                                                        .build())
+                                        .header("Prefer", "return=minimal")
+                                        .bodyValue(Map.of("last_login_at", Instant.now().toString()))
+                                        .retrieve()
+                                        .bodyToMono(String.class)
+                                        .onErrorResume(WebClientResponseException.class, ex -> Mono.empty())
+                                        .onErrorResume(ex -> Mono.empty());
+
+                        return touch.thenReturn(dto);
+                });
+        }
 }

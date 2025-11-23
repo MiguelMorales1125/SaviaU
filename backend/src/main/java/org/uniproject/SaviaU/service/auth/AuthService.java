@@ -235,6 +235,31 @@ public class AuthService {
                 .doOnError(e -> log.error("Error al finalizar login con Google: {}", e.getMessage()));
     }
 
+    public Mono<LoginResponse> refreshSession(TokenRefreshRequest request) {
+        if (request.getRefreshToken() == null || request.getRefreshToken().isBlank()) {
+            return Mono.error(new RuntimeException("Refresh token requerido"));
+        }
+
+        Map<String, String> body = Map.of("refresh_token", request.getRefreshToken());
+
+        return clients.getAuthPublic().post()
+                .uri("/token?grant_type=refresh_token")
+                .bodyValue(body)
+                .retrieve()
+                .bodyToMono(Map.class)
+                .map(this::mapAuthResponseToLoginResponse)
+                .map(lr -> {
+                    String uid = lr.getUser() != null ? lr.getUser().getId() : null;
+                    String email = lr.getUser() != null ? lr.getUser().getEmail() : null;
+                    lr.setAppToken(generateAppToken(uid, email));
+                    return lr;
+                })
+                .onErrorResume(WebClientResponseException.class, ex -> {
+                    log.error("Refresh session failed {}: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+                    return Mono.error(new RuntimeException("No se pudo refrescar la sesión"));
+                });
+    }
+
     private String generateAppToken(String userId, String email) {
         String subject = (userId != null && !userId.isBlank()) ? userId : email;
         return JwtUtil.generateHs256Token(

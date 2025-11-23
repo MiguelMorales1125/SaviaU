@@ -15,5 +15,6 @@ public class TriviaSetDto {
     private String description;
     private String topic;
     private Integer questionCount; // opcional, si se calcula
+    private Boolean active;
 }
 

@@ -7,6 +7,7 @@ import org.uniproject.SaviaU.dto.GoogleFinishRequest;
 import org.uniproject.SaviaU.dto.LoginRequest;
 import org.uniproject.SaviaU.dto.LoginResponse;
 import org.uniproject.SaviaU.dto.RegisterRequest;
+import org.uniproject.SaviaU.dto.TokenRefreshRequest;
 import org.uniproject.SaviaU.service.auth.AuthService;
 import reactor.core.publisher.Mono;
 
@@ -45,6 +46,13 @@ public class AuthController {
         return authService.finishGoogleLogin(request)
                 .map(ResponseEntity::ok)
                 .onErrorReturn(ResponseEntity.status(400).build());
+    }
+
+    @PostMapping("/token/refresh")
+    public Mono<ResponseEntity<LoginResponse>> refreshSession(@RequestBody TokenRefreshRequest request) {
+        return authService.refreshSession(request)
+                .map(ResponseEntity::ok)
+                .onErrorReturn(ResponseEntity.status(401).build());
     }
 }
 

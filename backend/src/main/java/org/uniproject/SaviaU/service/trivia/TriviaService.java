@@ -46,6 +46,7 @@ public class TriviaService {
                                 .title((String) m.get("title"))
                                 .description((String) m.get("description"))
                                 .topic((String) m.get("topic"))
+                                .active(Boolean.TRUE)
                                 .build())
                         .collect(Collectors.toList()));
     }
@@ -145,7 +146,6 @@ public class TriviaService {
     public Mono<TriviaAnswerResponse> answer(TriviaAnswerRequest request) {
         return getUserFromToken(request.getAccessToken()).flatMap(user -> {
             String userId = (String) user.get("id");
-            // Cargar intento
             Mono<List<Map>> attemptMono = clients.getDbAdmin().get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/trivia_attempts")
@@ -156,7 +156,6 @@ public class TriviaService {
                     .bodyToFlux(Map.class)
                     .collectList();
 
-            // Cargar opción seleccionada (para saber si es correcta y explicación) y su pregunta
             Mono<List<Map>> optMono = clients.getDbAdmin().get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/trivia_options")
@@ -167,86 +166,92 @@ public class TriviaService {
                     .bodyToFlux(Map.class)
                     .collectList();
 
-            // Cargar pregunta para validar que pertenece al set del intento y obtener topic
-            Mono<List<Map>> qMono = clients.getDbAdmin().get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/trivia_questions")
-                            .queryParam("select", "id,set_id,topic")
-                            .queryParam("id", "eq." + request.getQuestionId())
-                            .build())
-                    .retrieve()
-                    .bodyToFlux(Map.class)
-                    .collectList();
-
-            return Mono.zip(attemptMono, optMono, qMono).flatMap(tuple -> {
+            return Mono.zip(attemptMono, optMono).flatMap(tuple -> {
                 List<Map> attempts = tuple.getT1();
                 List<Map> options = tuple.getT2();
-                List<Map> questions = tuple.getT3();
 
                 if (attempts.isEmpty()) return Mono.error(new RuntimeException("Intento no encontrado"));
-                Map attempt = attempts.get(0);
-                if (!Objects.equals(userId, attempt.get("user_id"))) return Mono.error(new RuntimeException("No autorizado"));
-                if (attempt.get("completed_at") != null) return Mono.error(new RuntimeException("El intento ya fue finalizado"));
                 if (options.isEmpty()) return Mono.error(new RuntimeException("Opción inválida"));
-                if (questions.isEmpty()) return Mono.error(new RuntimeException("Pregunta inválida"));
 
+                Map attempt = attempts.get(0);
                 Map opt = options.get(0);
-                Map q = questions.get(0);
-                String setFromAttempt = (String) attempt.get("set_id");
-                String setFromQuestion = (String) q.get("set_id");
-                if (!Objects.equals(setFromAttempt, setFromQuestion)) {
-                    return Mono.error(new RuntimeException("La pregunta no pertenece a esta trivia"));
+
+                String attemptUserId = attempt.get("user_id") == null ? null : String.valueOf(attempt.get("user_id"));
+                if (!Objects.equals(userId, attemptUserId)) return Mono.error(new RuntimeException("No autorizado"));
+                if (attempt.get("completed_at") != null) return Mono.error(new RuntimeException("El intento ya fue finalizado"));
+
+                String questionIdFromOption = opt.get("question_id") == null ? null : String.valueOf(opt.get("question_id"));
+                if (questionIdFromOption == null) return Mono.error(new RuntimeException("Pregunta inválida"));
+                if (request.getQuestionId() != null && !Objects.equals(request.getQuestionId(), questionIdFromOption)) {
+                    log.warn("[TRIVIA] questionId inconsistente. payload={}, derivada={}", request.getQuestionId(), questionIdFromOption);
                 }
 
-                // Extraer explicación si existe
-                String explanation = opt.get("explanation") == null ? null : String.valueOf(opt.get("explanation"));
-
-                // Buscar opción correcta para UI (y para determinar corrección de forma robusta)
-                Mono<List<Map>> correctOptMono = clients.getDbAdmin().get()
+                Mono<List<Map>> qMono = clients.getDbAdmin().get()
                         .uri(uriBuilder -> uriBuilder
-                                .path("/trivia_options")
-                                .queryParam("select", "id,is_correct")
-                                .queryParam("question_id", "eq." + request.getQuestionId())
-                                .queryParam("is_correct", "eq.true")
+                                .path("/trivia_questions")
+                                .queryParam("select", "id,set_id,topic")
+                                .queryParam("id", "eq." + questionIdFromOption)
                                 .build())
                         .retrieve()
                         .bodyToFlux(Map.class)
                         .collectList();
 
-                // Primero obtenemos la(s) opción(es) correcta(s), luego determinamos la corrección
-                return correctOptMono.flatMap(corr -> {
-                    String correctOptionId = corr.isEmpty() ? null : (String) corr.get(0).get("id");
-                    // Determinar si la selección es correcta comparando ids (fallback más robusto)
-                    boolean computedIsCorrect = Objects.equals(correctOptionId, request.getSelectedOptionId())
-                            || Boolean.TRUE.equals(opt.get("is_correct"));
+                return qMono.flatMap(questions -> {
+                    if (questions.isEmpty()) return Mono.error(new RuntimeException("Pregunta inválida"));
+                    Map q = questions.get(0);
+                    String setFromAttempt = attempt.get("set_id") == null ? null : String.valueOf(attempt.get("set_id"));
+                    String setFromQuestion = q.get("set_id") == null ? null : String.valueOf(q.get("set_id"));
+                                        if (!Objects.equals(setFromAttempt, setFromQuestion)) {
+                                                log.warn("[TRIVIA] Pregunta {} pertenece a set {} pero el intento es {}. Se continuará para no bloquear al usuario.",
+                                                                questionIdFromOption, setFromQuestion, setFromAttempt);
+                                        }
 
-                    // Upsert respuesta con el valor determinado
-                    Map<String, Object> answerRow = new HashMap<>();
-                    answerRow.put("attempt_id", request.getAttemptId());
-                    answerRow.put("question_id", request.getQuestionId());
-                    answerRow.put("selected_option_id", request.getSelectedOptionId());
-                    answerRow.put("is_correct", computedIsCorrect);
+                    String explanation = opt.get("explanation") == null ? null : String.valueOf(opt.get("explanation"));
 
-                    TriviaAnswerResponse response = TriviaAnswerResponse.builder()
-                            .attemptId(request.getAttemptId())
-                            .questionId(request.getQuestionId())
-                            .selectedOptionId(request.getSelectedOptionId())
-                            .correct(computedIsCorrect)
-                            .explanation(explanation)
-                            .correctOptionId(correctOptionId)
-                            .build();
-
-                    return clients.getDbAdmin().post()
+                    Mono<List<Map>> correctOptMono = clients.getDbAdmin().get()
                             .uri(uriBuilder -> uriBuilder
-                                    .path("/trivia_answers")
-                                    .queryParam("on_conflict", "attempt_id,question_id")
+                                    .path("/trivia_options")
+                                    .queryParam("select", "id,is_correct")
+                                    .queryParam("question_id", "eq." + questionIdFromOption)
+                                    .queryParam("is_correct", "eq.true")
                                     .build())
-                            .header("Prefer", "resolution=merge-duplicates,return=minimal")
-                            .bodyValue(answerRow)
                             .retrieve()
-                            .bodyToMono(String.class)
-                            .onErrorResume(WebClientResponseException.class, ex -> Mono.just(""))
-                            .thenReturn(response);
+                            .bodyToFlux(Map.class)
+                            .collectList();
+
+                    return correctOptMono.flatMap(corr -> {
+                        String correctOptionId = corr.isEmpty() ? null : String.valueOf(corr.get(0).get("id"));
+                        boolean computedIsCorrect = Objects.equals(correctOptionId, request.getSelectedOptionId())
+                                || Boolean.TRUE.equals(opt.get("is_correct"));
+
+                        Map<String, Object> answerRow = new HashMap<>();
+                        answerRow.put("attempt_id", request.getAttemptId());
+                        answerRow.put("question_id", questionIdFromOption);
+                        answerRow.put("selected_option_id", request.getSelectedOptionId());
+                        answerRow.put("is_correct", computedIsCorrect);
+
+                        TriviaAnswerResponse response = TriviaAnswerResponse.builder()
+                                .attemptId(request.getAttemptId())
+                                .questionId(questionIdFromOption)
+                                .selectedOptionId(request.getSelectedOptionId())
+                                .correct(computedIsCorrect)
+                                .explanation(explanation)
+                                .correctOptionId(correctOptionId)
+                                .build();
+
+                        return clients.getDbAdmin().post()
+                                .uri(uriBuilder -> uriBuilder
+                                        .path("/trivia_answers")
+                                        .queryParam("on_conflict", "attempt_id,question_id")
+                                        .build())
+                                .header("Prefer", "resolution=merge-duplicates,return=minimal")
+                                .bodyValue(answerRow)
+                                .retrieve()
+                                .bodyToMono(String.class)
+                                .onErrorResume(WebClientResponseException.class, ex -> Mono.just(""))
+                                .defaultIfEmpty("")
+                                .map(__ -> response);
+                    });
                 });
             });
         });
@@ -464,19 +469,34 @@ public class TriviaService {
                             .totalCorrect(0)
                             .build());
                 }
-                String inAttempts = "in.(" + attempts.stream()
-                        .map(m -> (String) m.get("id"))
-                        .map(id -> "\"" + id + "\"")
-                        .collect(Collectors.joining(",")) + ")";
-                Mono<List<Map>> ansMono = clients.getDbAdmin().get()
-                        .uri(uriBuilder -> uriBuilder
-                                .path("/trivia_answers")
-                                .queryParam("select", "is_correct,attempt_id")
-                                .queryParam("attempt_id", inAttempts)
-                                .build())
-                        .retrieve()
-                        .bodyToFlux(Map.class)
-                        .collectList();
+                Mono<List<Map>> ansMono;
+                if (attempts.size() == 1) {
+                    String attemptId = String.valueOf(attempts.get(0).get("id"));
+                    ansMono = clients.getDbAdmin().get()
+                            .uri(uriBuilder -> uriBuilder
+                                    .path("/trivia_answers")
+                                    .queryParam("select", "is_correct,attempt_id")
+                                    .queryParam("attempt_id", "eq." + attemptId)
+                                    .build())
+                            .retrieve()
+                            .bodyToFlux(Map.class)
+                            .collectList();
+                } else {
+                    String orParam = attempts.stream()
+                            .map(m -> String.valueOf(m.get("id")))
+                            .map(id -> "attempt_id.eq." + id)
+                            .collect(Collectors.joining(","));
+                    String orWrapped = "(" + orParam + ")";
+                    ansMono = clients.getDbAdmin().get()
+                            .uri(uriBuilder -> uriBuilder
+                                    .path("/trivia_answers")
+                                    .queryParam("select", "is_correct,attempt_id")
+                                    .queryParam("or", orWrapped)
+                                    .build())
+                            .retrieve()
+                            .bodyToFlux(Map.class)
+                            .collectList();
+                }
 
                 return ansMono.map(ans -> {
                     int totalAns = ans.size();
