@@ -47,29 +47,68 @@ public class AdminTriviaManagementService {
     public Mono<TriviaSetDto> upsertSet(String accessToken, AdminTriviaSetUpsertRequest request) {
 	return adminAuthService.requireAdmin(accessToken)
 		.then(Mono.defer(() -> {
+		    log.info("🔧 upsertSet - Request: id={}, title={}, active={}", 
+			    request.getId(), request.getTitle(), request.getActive());
+		    
 		    Map<String, Object> body = new HashMap<>();
-		    if (request.getId() != null) body.put("id", request.getId());
 		    body.put("title", request.getTitle());
 		    body.put("description", request.getDescription());
 		    body.put("topic", request.getTopic());
-		    if (request.getActive() != null) body.put("is_active", request.getActive());
-		    return clients.getDbAdmin().post()
-			    .uri(uriBuilder -> uriBuilder
-				    .path("/trivia_sets")
-				    .queryParam("on_conflict", "id")
-				    .build())
-			    .header("Prefer", "return=representation")
-			    .bodyValue(body)
-			    .retrieve()
-			    .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
-			    .map(rows -> rows.get(0))
-			    .map(row -> TriviaSetDto.builder()
-				    .id((String) row.get("id"))
-				    .title((String) row.get("title"))
-				    .description((String) row.get("description"))
-				    .topic((String) row.get("topic"))
-				    .active(row.get("is_active") == null ? null : Boolean.valueOf(String.valueOf(row.get("is_active"))))
-				    .build());
+		    // Asegurar que is_active siempre tenga un valor booleano válido
+		    body.put("is_active", request.getActive() != null ? request.getActive() : true);
+		    log.info("🔧 upsertSet - Body to send: {}", body);
+		    
+		    // Si hay ID, es una actualización (PATCH), si no hay ID es creación (POST)
+		    if (request.getId() != null && !request.getId().isEmpty()) {
+			// Actualización
+			return clients.getDbAdmin().patch()
+				.uri(uriBuilder -> uriBuilder
+					.path("/trivia_sets")
+					.queryParam("id", "eq." + request.getId())
+					.build())
+				.header("Prefer", "return=representation")
+				.bodyValue(body)
+				.retrieve()
+				.bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
+				.doOnError(error -> {
+				    log.error("❌ upsertSet (UPDATE) - Error from Supabase: {}", error.getMessage(), error);
+				})
+				.map(rows -> {
+				    log.info("✅ upsertSet (UPDATE) - Response from Supabase: {}", rows);
+				    return rows.get(0);
+				})
+				.map(row -> TriviaSetDto.builder()
+					.id((String) row.get("id"))
+					.title((String) row.get("title"))
+					.description((String) row.get("description"))
+					.topic((String) row.get("topic"))
+					.active(row.get("is_active") == null ? null : Boolean.valueOf(String.valueOf(row.get("is_active"))))
+					.build());
+		    } else {
+			// Creación
+			return clients.getDbAdmin().post()
+				.uri(uriBuilder -> uriBuilder
+					.path("/trivia_sets")
+					.build())
+				.header("Prefer", "return=representation")
+				.bodyValue(body)
+				.retrieve()
+				.bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
+				.doOnError(error -> {
+				    log.error("❌ upsertSet (CREATE) - Error from Supabase: {}", error.getMessage(), error);
+				})
+				.map(rows -> {
+				    log.info("✅ upsertSet (CREATE) - Response from Supabase: {}", rows);
+				    return rows.get(0);
+				})
+				.map(row -> TriviaSetDto.builder()
+					.id((String) row.get("id"))
+					.title((String) row.get("title"))
+					.description((String) row.get("description"))
+					.topic((String) row.get("topic"))
+					.active(row.get("is_active") == null ? null : Boolean.valueOf(String.valueOf(row.get("is_active"))))
+					.build());
+		    }
 		}));
     }
 
@@ -92,25 +131,54 @@ public class AdminTriviaManagementService {
     public Mono<Void> deleteQuestion(String accessToken, String questionId) {
 	return adminAuthService.requireAdmin(accessToken)
 		.then(Mono.defer(() -> {
-		    Mono<String> deleteOptions = clients.getDbAdmin().method(HttpMethod.DELETE)
+		    log.info("Eliminando pregunta {}", questionId);
+		    
+		    // Primero eliminar respuestas asociadas a esta pregunta
+		    Mono<Void> deleteAnswers = clients.getDbAdmin().method(HttpMethod.DELETE)
+			    .uri(uriBuilder -> uriBuilder
+				    .path("/trivia_answers")
+				    .queryParam("question_id", "eq." + questionId)
+				    .build())
+			    .retrieve()
+			    .bodyToMono(String.class)
+			    .doOnSuccess(r -> log.info("Respuestas eliminadas para pregunta {}", questionId))
+			    .then()
+			    .onErrorResume(WebClientResponseException.class, ex -> {
+				log.warn("Error eliminando respuestas (puede que no existan): {}", ex.getMessage());
+				return Mono.empty();
+			    });
+		    
+		    // Luego eliminar opciones
+		    Mono<Void> deleteOptions = clients.getDbAdmin().method(HttpMethod.DELETE)
 			    .uri(uriBuilder -> uriBuilder
 				    .path("/trivia_options")
 				    .queryParam("question_id", "eq." + questionId)
 				    .build())
 			    .retrieve()
 			    .bodyToMono(String.class)
-			    .onErrorResume(WebClientResponseException.class, ex -> Mono.empty());
+			    .doOnSuccess(r -> log.info("Opciones eliminadas para pregunta {}", questionId))
+			    .then()
+			    .onErrorResume(WebClientResponseException.class, ex -> {
+				log.error("Error eliminando opciones: Status: {}, Body: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+				return Mono.error(new RuntimeException("Error eliminando opciones de la pregunta: " + ex.getResponseBodyAsString()));
+			    });
 
-		    Mono<String> deleteQuestion = clients.getDbAdmin().method(HttpMethod.DELETE)
+		    // Finalmente eliminar la pregunta
+		    Mono<Void> deleteQuestion = clients.getDbAdmin().method(HttpMethod.DELETE)
 			    .uri(uriBuilder -> uriBuilder
 				    .path("/trivia_questions")
 				    .queryParam("id", "eq." + questionId)
 				    .build())
 			    .retrieve()
 			    .bodyToMono(String.class)
-			    .onErrorResume(WebClientResponseException.class, ex -> Mono.empty());
+			    .doOnSuccess(r -> log.info("Pregunta {} eliminada exitosamente", questionId))
+			    .then()
+			    .onErrorResume(WebClientResponseException.class, ex -> {
+				log.error("Error eliminando pregunta: Status: {}, Body: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+				return Mono.error(new RuntimeException("Error eliminando la pregunta: " + ex.getResponseBodyAsString()));
+			    });
 
-		    return deleteOptions.then(deleteQuestion).then();
+		    return deleteAnswers.then(deleteOptions).then(deleteQuestion);
 		}));
     }
 
@@ -435,59 +503,133 @@ public class AdminTriviaManagementService {
 	return questionMono.flatMap(row -> {
 	    String questionId = (String) row.get("id");
 	    List<AdminTriviaQuestionUpsertRequest.OptionPayload> opts = Optional.ofNullable(request.getOptions()).orElse(List.of());
-	    Mono<List<Map<String, Object>>> upsertOptionsMono;
+	    
+	    log.info("Procesando opciones para pregunta {}. Creating: {}, Total opciones: {}", questionId, creating, opts.size());
+	    
+	    Mono<Void> saveOptionsMono;
 	    if (opts.isEmpty()) {
-		upsertOptionsMono = Mono.just(List.of());
+		saveOptionsMono = Mono.empty();
 	    } else {
-		List<Map<String, Object>> optionBodies = opts.stream().map(opt -> {
-		    Map<String, Object> map = new HashMap<>();
-		    if (opt.getId() != null) map.put("id", opt.getId());
-		    map.put("question_id", questionId);
-		    map.put("text", opt.getText());
-		    map.put("is_correct", opt.isCorrect());
-		    map.put("explanation", opt.getExplanation());
-		    return map;
-		}).collect(Collectors.toList());
-		upsertOptionsMono = clients.getDbAdmin().post()
-			.uri(uriBuilder -> uriBuilder
-				.path("/trivia_options")
-				.queryParam("on_conflict", "id")
-				.build())
-			.header("Prefer", "return=representation,resolution=merge-duplicates")
-			.bodyValue(optionBodies)
-			.retrieve()
-			.bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
-			.onErrorResume(WebClientResponseException.class, ex -> {
-			    log.error("No se pudieron guardar opciones: {}", ex.getResponseBodyAsString());
-			    return Mono.error(new RuntimeException("Error guardando opciones"));
-			});
-	    }
-
-	    Mono<String> cleanupMono;
-	    if (!opts.isEmpty()) {
-		String keepIds = opts.stream()
-			.map(AdminTriviaQuestionUpsertRequest.OptionPayload::getId)
-			.filter(Objects::nonNull)
-			.map(id -> "\"" + id + "\"")
-			.collect(Collectors.joining(","));
-		if (!keepIds.isBlank()) {
-		    cleanupMono = clients.getDbAdmin().method(HttpMethod.DELETE)
+		// Separar opciones nuevas (sin id) de existentes (con id)
+		List<AdminTriviaQuestionUpsertRequest.OptionPayload> newOptions = opts.stream()
+			.filter(opt -> opt.getId() == null || opt.getId().isBlank())
+			.collect(Collectors.toList());
+		List<AdminTriviaQuestionUpsertRequest.OptionPayload> existingOptions = opts.stream()
+			.filter(opt -> opt.getId() != null && !opt.getId().isBlank())
+			.collect(Collectors.toList());
+		
+		log.info("Opciones nuevas: {}, Opciones existentes: {}", newOptions.size(), existingOptions.size());
+		
+		// Primero, si es update, eliminar opciones que ya no están
+		Mono<Void> deleteMono;
+		if (!creating && !opts.isEmpty()) {
+		    String keepIds = existingOptions.stream()
+			    .map(AdminTriviaQuestionUpsertRequest.OptionPayload::getId)
+			    .map(id -> "\"" + id + "\"")
+			    .collect(Collectors.joining(","));
+		    if (!keepIds.isBlank()) {
+			deleteMono = clients.getDbAdmin().method(HttpMethod.DELETE)
+				.uri(uriBuilder -> uriBuilder
+					.path("/trivia_options")
+					.queryParam("question_id", "eq." + questionId)
+					.queryParam("id", "not.in.(" + keepIds + ")")
+					.build())
+				.retrieve()
+				.bodyToMono(String.class)
+				.then()
+				.onErrorResume(WebClientResponseException.class, ex -> {
+				    log.warn("Error eliminando opciones antiguas: {}", ex.getMessage());
+				    return Mono.empty();
+				});
+		    } else {
+			// Si no hay IDs existentes, eliminar todas las opciones viejas
+			deleteMono = clients.getDbAdmin().method(HttpMethod.DELETE)
+				.uri(uriBuilder -> uriBuilder
+					.path("/trivia_options")
+					.queryParam("question_id", "eq." + questionId)
+					.build())
+				.retrieve()
+				.bodyToMono(String.class)
+				.then()
+				.onErrorResume(WebClientResponseException.class, ex -> {
+				    log.warn("Error eliminando todas las opciones: {}", ex.getMessage());
+				    return Mono.empty();
+				});
+		    }
+		} else {
+		    deleteMono = Mono.empty();
+		}
+		
+		// Luego, actualizar opciones existentes
+		Mono<Void> updateMono;
+		if (!existingOptions.isEmpty()) {
+		    List<Map<String, Object>> updateBodies = existingOptions.stream().map(opt -> {
+			Map<String, Object> map = new HashMap<>();
+			map.put("id", opt.getId());
+			map.put("question_id", questionId);
+			map.put("text", opt.getText());
+			map.put("is_correct", opt.isCorrect());
+			if (opt.getExplanation() != null && !opt.getExplanation().isBlank()) {
+			    map.put("explanation", opt.getExplanation());
+			}
+			return map;
+		    }).collect(Collectors.toList());
+		    
+		    log.info("Actualizando {} opciones existentes", updateBodies.size());
+		    updateMono = clients.getDbAdmin().post()
 			    .uri(uriBuilder -> uriBuilder
 				    .path("/trivia_options")
-				    .queryParam("question_id", "eq." + questionId)
-				    .queryParam("id", "not.in.(" + keepIds + ")")
+				    .queryParam("on_conflict", "id")
 				    .build())
+			    .header("Prefer", "return=representation,resolution=merge-duplicates")
+			    .bodyValue(updateBodies)
 			    .retrieve()
-			    .bodyToMono(String.class)
-			    .onErrorResume(WebClientResponseException.class, ex -> Mono.empty());
+			    .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
+			    .then()
+			    .onErrorResume(WebClientResponseException.class, ex -> {
+				log.error("Error actualizando opciones existentes. Status: {}, Body: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+				return Mono.error(new RuntimeException("Error actualizando opciones: " + ex.getResponseBodyAsString()));
+			    });
 		} else {
-		    cleanupMono = Mono.empty();
+		    updateMono = Mono.empty();
 		}
-	    } else {
-		cleanupMono = Mono.empty();
+		
+		// Finalmente, insertar opciones nuevas
+		Mono<Void> insertMono;
+		if (!newOptions.isEmpty()) {
+		    List<Map<String, Object>> insertBodies = newOptions.stream().map(opt -> {
+			Map<String, Object> map = new HashMap<>();
+			map.put("question_id", questionId);
+			map.put("text", opt.getText());
+			map.put("is_correct", opt.isCorrect());
+			if (opt.getExplanation() != null && !opt.getExplanation().isBlank()) {
+			    map.put("explanation", opt.getExplanation());
+			}
+			return map;
+		    }).collect(Collectors.toList());
+		    
+		    log.info("Insertando {} opciones nuevas", insertBodies.size());
+		    insertMono = clients.getDbAdmin().post()
+			    .uri(uriBuilder -> uriBuilder
+				    .path("/trivia_options")
+				    .build())
+			    .header("Prefer", "return=representation")
+			    .bodyValue(insertBodies)
+			    .retrieve()
+			    .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
+			    .then()
+			    .onErrorResume(WebClientResponseException.class, ex -> {
+				log.error("Error insertando opciones nuevas. Status: {}, Body: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+				return Mono.error(new RuntimeException("Error insertando opciones: " + ex.getResponseBodyAsString()));
+			    });
+		} else {
+		    insertMono = Mono.empty();
+		}
+		
+		saveOptionsMono = deleteMono.then(updateMono).then(insertMono);
 	    }
 
-	    return upsertOptionsMono.then(cleanupMono).then(fetchQuestionsInternal(request.getSetId())
+	    return saveOptionsMono.then(fetchQuestionsInternal(request.getSetId())
 		    .map(list -> list.stream()
 			    .filter(q -> questionId.equals(q.getId()))
 			    .findFirst()
@@ -501,6 +643,54 @@ public class AdminTriviaManagementService {
 				    .options(List.of())
 				    .build())));
 	});
+    }
+
+    public Mono<List<AdminTriviaHistoryDto>> getUserHistory(String token, String userId, int days) {
+	return adminAuthService.requireAdmin(token)
+		.flatMap(valid -> clients.getDbAdmin().get()
+			.uri(uriBuilder -> uriBuilder
+				.path("/trivia_attempts")
+				.queryParam("select", "completed_at,score_percent")
+				.queryParam("user_id", "eq." + userId)
+				.queryParam("completed_at", "not.is.null")
+				.queryParam("order", "completed_at.asc")
+				.build())
+			.retrieve()
+			.bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
+			.map(attempts -> {
+			    if (attempts.isEmpty()) return List.of();
+			    
+			    // Agrupar por fecha
+			    java.time.Instant cutoff = java.time.Instant.now().minus(days, java.time.temporal.ChronoUnit.DAYS);
+			    Map<java.time.LocalDate, List<Double>> byDate = attempts.stream()
+				    .filter(a -> {
+					String completedStr = (String) a.get("completed_at");
+					if (completedStr == null) return false;
+					java.time.Instant completed = java.time.Instant.parse(completedStr);
+					return completed.isAfter(cutoff);
+				    })
+				    .collect(java.util.stream.Collectors.groupingBy(
+					    a -> java.time.Instant.parse((String) a.get("completed_at"))
+						    .atZone(java.time.ZoneId.systemDefault())
+						    .toLocalDate(),
+					    java.util.stream.Collectors.mapping(
+						    a -> toDouble(a.get("score_percent")),
+						    java.util.stream.Collectors.toList()
+					    )
+				    ));
+			    
+			    return byDate.entrySet().stream()
+				    .map(entry -> AdminTriviaHistoryDto.builder()
+					    .date(entry.getKey())
+					    .avgScore(entry.getValue().stream()
+						    .mapToDouble(Double::doubleValue)
+						    .average()
+						    .orElse(0))
+					    .attempts(entry.getValue().size())
+					    .build())
+				    .sorted(java.util.Comparator.comparing(AdminTriviaHistoryDto::getDate))
+				    .collect(java.util.stream.Collectors.toList());
+			}));
     }
 
     private double toDouble(Object value) {

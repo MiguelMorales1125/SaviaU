@@ -75,11 +75,13 @@ export default function DiagnosticScreen() {
         setError(e?.message || String(e));
       }
 
-  // If user is authenticated, check diagnostic status
-  const tokenToUse = supabaseAccessToken;
-      if (tokenToUse) {
+      // If user is authenticated, check diagnostic status
+      const tokenToUse = supabaseAccessToken;
+      if (tokenToUse && tokenToUse.trim() !== '') {
         try {
+          console.log('[Diagnostic] Checking status with token:', tokenToUse.substring(0, 20) + '...');
           const st = await fetchDiagnosticStatus(tokenToUse);
+          console.log('[Diagnostic] Status response:', st);
           if (st.completed) {
             // mark the diagnostic as completed in the global auth state so
             // the app doesn't keep redirecting users back to the diagnostic
@@ -92,12 +94,14 @@ export default function DiagnosticScreen() {
             return;
           }
         } catch (e: any) {
-          console.warn('diagnostic status check failed', e);
-          // don't block questions display if status check fails
+          console.warn('[Diagnostic] Status check failed, allowing user to continue:', e);
+          // don't block questions display if status check fails - user might be new
         }
+      } else {
+        console.warn('[Diagnostic] No access token available, skipping status check');
       }
     } catch (err: any) {
-      console.error(err);
+      console.error('[Diagnostic] Error loading questions:', err);
       // Use window.alert on web where Alert.alert may not be available
       if (typeof window !== 'undefined') window.alert('Error: ' + String(err));
       else Alert.alert('Error', String(err));

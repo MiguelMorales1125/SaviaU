@@ -4,9 +4,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { HapticTab } from '@/components/haptic-tab';
-// import { IconSymbol } from '@/components/ui/icon-symbol';
-// import { Colors } from '@/constants/theme';
-// import { useColorScheme } from '@/hooks/use-color-scheme';
+import AccessibilityPanel from '@/components/AccessibilityPanel';
 
 import { useAuth } from '../../context/AuthContext';
 import LoginScreen from '../(auth)/login';
@@ -54,52 +52,55 @@ function ProtectedTabs() {
   }
 
   return (
-    <Tabs
-      tabBar={(props: any) => <CustomTabBar {...props} />}
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: '#ffffff',
-        tabBarInactiveTintColor: 'rgba(255,255,255,0.75)',
-        tabBarStyle: { backgroundColor: '#198754', borderTopColor: '#198754', height: 64, paddingBottom: 6, paddingTop: 6 },
-        tabBarButton: HapticTab,
-      }}>
-      <Tabs.Screen
-        name="home"
-        options={{
-          title: '¡Bienvenido!',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="newspaper-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="retos"
-        options={{
-          title: 'Retos',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="help-circle-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="tematicas"
-        options={{
-          title: 'Temáticas',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="book-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="perfil"
-        options={{
-          title: 'Perfil',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-circle-outline" size={size} color={color} />
-          ),
-        }}
-      />
-    </Tabs>
+    <>
+      <Tabs
+        tabBar={(props: any) => <CustomTabBar {...props} />}
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: '#ffffff',
+          tabBarInactiveTintColor: 'rgba(255,255,255,0.75)',
+          tabBarStyle: { backgroundColor: '#198754', borderTopColor: '#198754', height: 64, paddingBottom: 6, paddingTop: 6 },
+          tabBarButton: HapticTab,
+        }}>
+        <Tabs.Screen
+          name="home"
+          options={{
+            title: '¡Bienvenido!',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="newspaper-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="retos"
+          options={{
+            title: 'Retos',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="help-circle-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="tematicas"
+          options={{
+            title: 'Temáticas',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="book-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="perfil"
+          options={{
+            title: 'Perfil',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="person-circle-outline" size={size} color={color} />
+            ),
+          }}
+        />
+      </Tabs>
+      <AccessibilityPanel />
+    </>
   );
 }
 

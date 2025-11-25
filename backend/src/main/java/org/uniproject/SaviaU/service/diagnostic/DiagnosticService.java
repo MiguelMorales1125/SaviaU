@@ -75,23 +75,51 @@ public class DiagnosticService {
     }
 
     public Mono<Map<String, Object>> getStatus(String accessToken) {
-        return getUserFromToken(accessToken).flatMap(user -> {
-            String userId = (String) user.get("id");
-            return clients.getDbAdmin().get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/usuarios")
-                            .queryParam("select", "id,has_completed_diagnostic,diagnostic_level,diagnostic_completed_at")
-                            .queryParam("id", "eq." + userId)
-                            .build())
-                    .retrieve()
-                    .bodyToFlux(Map.class)
-                    .collectList()
-                    .map(list -> list.isEmpty() ? Map.of("completed", false) : Map.of(
-                            "completed", Boolean.TRUE.equals(list.get(0).get("has_completed_diagnostic")) || Boolean.TRUE.equals(Boolean.valueOf(String.valueOf(list.get(0).get("has_completed_diagnostic")))),
-                            "level", list.get(0).get("diagnostic_level"),
-                            "completedAt", list.get(0).get("diagnostic_completed_at")
-                    ));
-        });
+        return getUserFromToken(accessToken)
+                .flatMap(user -> {
+                    String userId = (String) user.get("id");
+                    if (userId == null || userId.isBlank()) {
+                        log.warn("Usuario sin ID válido en token");
+                        Map<String, Object> result = new HashMap<>();
+                        result.put("completed", false);
+                        return Mono.just(result);
+                    }
+                    return clients.getDbAdmin().get()
+                            .uri(uriBuilder -> uriBuilder
+                                    .path("/usuarios")
+                                    .queryParam("select", "id,has_completed_diagnostic,diagnostic_level,diagnostic_completed_at")
+                                    .queryParam("id", "eq." + userId)
+                                    .build())
+                            .retrieve()
+                            .bodyToFlux(Map.class)
+                            .collectList()
+                            .map(list -> {
+                                if (list.isEmpty()) {
+                                    log.info("Usuario {} no encontrado en tabla usuarios, retornando estado incompleto", userId);
+                                    Map<String, Object> result = new HashMap<>();
+                                    result.put("completed", false);
+                                    return result;
+                                }
+                                @SuppressWarnings("unchecked")
+                                Map<String, Object> row = (Map<String, Object>) list.get(0);
+                                boolean completed = Boolean.TRUE.equals(row.get("has_completed_diagnostic")) || 
+                                                  Boolean.TRUE.equals(Boolean.valueOf(String.valueOf(row.get("has_completed_diagnostic"))));
+                                Map<String, Object> result = new HashMap<>();
+                                result.put("completed", completed);
+                                result.put("level", row.get("diagnostic_level") != null ? row.get("diagnostic_level") : "");
+                                result.put("completedAt", row.get("diagnostic_completed_at") != null ? row.get("diagnostic_completed_at") : "");
+                                return result;
+                            });
+                })
+                .onErrorResume(ex -> {
+                    log.error("Error al obtener estado del diagnóstico: {}", ex.getMessage(), ex);
+                    // Si falla la autenticación o cualquier otro error, asumimos que no está completado
+                    // para permitir que usuarios nuevos puedan intentar hacer el diagnóstico
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("completed", false);
+                    result.put("error", ex.getMessage() != null ? ex.getMessage() : "Error desconocido");
+                    return Mono.just(result);
+                });
     }
 
     public Mono<DiagnosticResultDto> submit(DiagnosticSubmitRequest request) {

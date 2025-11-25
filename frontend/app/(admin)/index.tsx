@@ -15,7 +15,9 @@ import {
   Switch,
   StyleProp,
   ViewStyle,
+  Dimensions,
 } from 'react-native';
+import Svg, { Line, Polyline, Text as SvgText, Circle } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
@@ -27,6 +29,7 @@ import {
   AdminTriviaQuestion,
   AdminTriviaSet,
   AdminUserProgress,
+  AdminTriviaHistory,
 } from '../../services/admin';
 import { TematicaArea, TematicaAreaSummary, TematicaResource } from '../../services/tematicas';
 
@@ -65,6 +68,7 @@ type ResourceFormState = {
   estimatedTime: string;
   funFact: string;
   deepDive: string;
+  highlighted: boolean;
   sourcesText: string;
 };
 
@@ -109,6 +113,7 @@ const makeEmptyResourceForm = (areaId: string): ResourceFormState => ({
   estimatedTime: '',
   funFact: '',
   deepDive: '',
+  highlighted: false,
   sourcesText: '',
 });
 
@@ -125,10 +130,12 @@ export default function AdminPage() {
   const [leaderboard, setLeaderboard] = useState<AdminLeaderboardRow[]>([]);
   const [cohortProgress, setCohortProgress] = useState<AdminUserProgress[]>([]);
   const [selectedUserProgress, setSelectedUserProgress] = useState<AdminUserProgress | null>(null);
+  const [userHistory, setUserHistory] = useState<AdminTriviaHistory[]>([]);
 
   const [loadingSets, setLoadingSets] = useState(false);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const [toast, setToast] = useState<ToastState>(null);
@@ -152,6 +159,13 @@ export default function AdminPage() {
   const [resourceForm, setResourceForm] = useState<ResourceFormState>(makeEmptyResourceForm(''));
 
   const isAdmin = user?.role === 'admin' || Boolean(adminToken);
+
+  // Debug: log adminToken on mount and when it changes
+  useEffect(() => {
+    console.log('[Admin Panel] adminToken:', adminToken ? `${adminToken.substring(0, 20)}...` : 'UNDEFINED');
+    console.log('[Admin Panel] user role:', user?.role);
+    console.log('[Admin Panel] isAdmin:', isAdmin);
+  }, [adminToken, user?.role, isAdmin]);
 
   useEffect(() => {
     try { (navigation as any)?.setOptions?.({ headerShown: false }); } catch {}
@@ -214,15 +228,21 @@ export default function AdminPage() {
   };
 
   const loadSets = useCallback(async () => {
-    if (!adminToken) return;
+    if (!adminToken) {
+      console.error('[Admin Panel] loadSets: adminToken is undefined!');
+      return;
+    }
+    console.log('[Admin Panel] loadSets: Fetching sets with token:', adminToken.substring(0, 20) + '...');
     setLoadingSets(true);
     try {
       const data = await adminTriviaApi.fetchSets(adminToken);
+      console.log('[Admin Panel] loadSets: Success, loaded', data.length, 'sets');
       setSets(data);
       if (!selectedSetId && data.length) {
         setSelectedSetId(data[0].id);
       }
     } catch (err: any) {
+      console.error('[Admin Panel] loadSets: Error:', err);
       showToast('error', err?.message || 'No se pudieron cargar las trivias');
     } finally {
       setLoadingSets(false);
@@ -230,18 +250,24 @@ export default function AdminPage() {
   }, [adminToken, selectedSetId]);
 
   const loadQuestions = useCallback(async (targetSetId?: string) => {
-    if (!adminToken) return;
+    if (!adminToken) {
+      console.error('[Admin Panel] loadQuestions: adminToken is undefined!');
+      return;
+    }
     const effectiveSetId = targetSetId || selectedSetId;
     if (!effectiveSetId) {
       setQuestions([]);
       return;
     }
+    console.log('[Admin Panel] loadQuestions: Fetching questions for set:', effectiveSetId);
     setLoadingQuestions(true);
     try {
       const data = await adminTriviaApi.fetchQuestions(adminToken, effectiveSetId);
+      console.log('[Admin Panel] loadQuestions: Success, loaded', data.length, 'questions');
       setQuestions(data);
     } catch (err: any) {
-      showToast('error', err?.message || 'No pudimos cargar las preguntas');
+      console.error('[Admin Panel] loadQuestions: Error:', err);
+      showToast('error', err?.message || 'No se pudieron cargar las preguntas');
     } finally {
       setLoadingQuestions(false);
     }
@@ -267,10 +293,17 @@ export default function AdminPage() {
   const loadUserProgress = useCallback(async (userId: string) => {
     if (!adminToken) return;
     try {
-      const detail = await adminTriviaApi.fetchUserProgress(adminToken, userId);
+      setLoadingHistory(true);
+      const [detail, history] = await Promise.all([
+        adminTriviaApi.fetchUserProgress(adminToken, userId),
+        adminTriviaApi.fetchUserHistory(adminToken, userId, 30),
+      ]);
       setSelectedUserProgress(detail);
+      setUserHistory(history);
     } catch (err: any) {
       showToast('error', err?.message || 'No se pudo cargar el detalle del usuario');
+    } finally {
+      setLoadingHistory(false);
     }
   }, [adminToken]);
 
@@ -392,7 +425,7 @@ export default function AdminPage() {
         title: set.title,
         description: set.description ?? '',
         topic: set.topic ?? '',
-        active: set.active !== false,
+        active: set.active ?? true,
       });
     } else {
       setSetForm({ title: '', description: '', topic: '', active: true });
@@ -482,20 +515,26 @@ export default function AdminPage() {
       showToast('error', 'Necesitas al menos una opción correcta');
       return;
     }
+    // Filtrar solo las opciones que tienen texto
+    const validOptions = questionForm.options
+      .filter((opt) => opt.text.trim().length > 0)
+      .map((opt) => ({
+        id: opt.id,
+        text: opt.text.trim(),
+        correct: Boolean(opt.correct),
+        explanation: opt.explanation?.trim() || null,
+      }));
+    
     const payload = {
       setId: questionForm.setId,
       questionId: questionForm.id,
       prompt: questionForm.prompt.trim(),
-      topic: questionForm.topic?.trim(),
-      difficulty: questionForm.difficulty?.trim(),
+      topic: questionForm.topic?.trim() || null,
+      difficulty: questionForm.difficulty?.trim() || null,
       active: questionForm.active,
-      options: questionForm.options.map((opt) => ({
-        id: opt.id,
-        text: opt.text.trim(),
-        correct: Boolean(opt.correct),
-        explanation: opt.explanation?.trim(),
-      })),
+      options: validOptions,
     };
+    console.log('[handleSaveQuestion] Payload:', JSON.stringify(payload, null, 2));
     try {
       if (questionForm.id) {
         await adminTriviaApi.updateQuestion(adminToken, questionForm.id, payload);
@@ -510,24 +549,25 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeleteQuestion = (question: AdminTriviaQuestion) => {
-    Alert.alert('Eliminar pregunta', 'Esta acción no se puede deshacer. ¿Continuar?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: async () => {
-          if (!adminToken) return;
-          try {
-            await adminTriviaApi.deleteQuestion(adminToken, question.id);
-            showToast('success', 'Pregunta eliminada');
-            await loadQuestions(question.setId);
-          } catch (err: any) {
-            showToast('error', err?.message || 'No se pudo eliminar la pregunta');
-          }
-        },
-      },
-    ]);
+  const handleDeleteQuestion = async (question: AdminTriviaQuestion) => {
+    const confirmed = Platform.OS === 'web' 
+      ? window.confirm('¿Eliminar pregunta? Esta acción no se puede deshacer.')
+      : await new Promise<boolean>((resolve) => {
+          Alert.alert('Eliminar pregunta', 'Esta acción no se puede deshacer. ¿Continuar?', [
+            { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Eliminar', style: 'destructive', onPress: () => resolve(true) },
+          ]);
+        });
+    
+    if (!confirmed || !adminToken) return;
+    
+    try {
+      await adminTriviaApi.deleteQuestion(adminToken, question.id);
+      showToast('success', 'Pregunta eliminada');
+      await loadQuestions(question.setId);
+    } catch (err: any) {
+      showToast('error', err?.message || 'No se pudo eliminar la pregunta');
+    }
   };
 
   const openTematicaAreaModal = async (area?: TematicaAreaSummary | TematicaArea) => {
@@ -602,6 +642,7 @@ export default function AdminPage() {
         estimatedTime: resource.estimatedTime || '',
         funFact: resource.funFact || '',
         deepDive: resource.deepDive || '',
+        highlighted: resource.highlighted || false,
         sourcesText: (resource.sources || []).join(', '),
       });
     } else {
@@ -636,6 +677,7 @@ export default function AdminPage() {
         estimatedTime: resourceForm.estimatedTime?.trim(),
         funFact: resourceForm.funFact?.trim(),
         deepDive: resourceForm.deepDive?.trim(),
+        highlighted: resourceForm.highlighted,
         sources,
       });
       showToast('success', 'Recurso guardado');
@@ -646,50 +688,52 @@ export default function AdminPage() {
     }
   };
 
-  const confirmDeleteTematicaResource = (resource: TematicaResource) => {
-    Alert.alert('Eliminar recurso', 'Esta acción no se puede deshacer. ¿Continuar?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: async () => {
-          if (!adminToken || !resource.id) return;
-          try {
-            await adminTriviaApi.deleteTematicaResource(adminToken, resource.id);
-            showToast('success', 'Recurso eliminado');
-            if (selectedTematicaId) {
-              await loadTematicaArea(selectedTematicaId, { silent: true, suppressToast: true });
-            }
-          } catch (err: any) {
-            showToast('error', err?.message || 'No se pudo eliminar el recurso');
-          }
-        },
-      },
-    ]);
+  const confirmDeleteTematicaResource = async (resource: TematicaResource) => {
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm('¿Eliminar recurso? Esta acción no se puede deshacer.')
+      : await new Promise<boolean>((resolve) => {
+          Alert.alert('Eliminar recurso', 'Esta acción no se puede deshacer. ¿Continuar?', [
+            { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Eliminar', style: 'destructive', onPress: () => resolve(true) },
+          ]);
+        });
+    
+    if (!confirmed || !adminToken || !resource.id) return;
+    
+    try {
+      await adminTriviaApi.deleteTematicaResource(adminToken, resource.id);
+      showToast('success', 'Recurso eliminado');
+      if (selectedTematicaId) {
+        await loadTematicaArea(selectedTematicaId, { silent: true, suppressToast: true });
+      }
+    } catch (err: any) {
+      showToast('error', err?.message || 'No se pudo eliminar el recurso');
+    }
   };
 
-  const confirmDeleteTematicaArea = (areaId: string) => {
-    Alert.alert('Eliminar temática', 'Se eliminarán todos los recursos asociados. ¿Continuar?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: async () => {
-          if (!adminToken) return;
-          try {
-            await adminTriviaApi.deleteTematicaArea(adminToken, areaId);
-            showToast('success', 'Temática eliminada');
-            if (selectedTematicaId === areaId) {
-              setSelectedTematicaId(null);
-              setTematicaDetail(null);
-            }
-            await loadTematicaAreas();
-          } catch (err: any) {
-            showToast('error', err?.message || 'No se pudo eliminar la temática');
-          }
-        },
-      },
-    ]);
+  const confirmDeleteTematicaArea = async (areaId: string) => {
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm('¿Eliminar temática? Se eliminarán todos los recursos asociados.')
+      : await new Promise<boolean>((resolve) => {
+          Alert.alert('Eliminar temática', 'Se eliminarán todos los recursos asociados. ¿Continuar?', [
+            { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Eliminar', style: 'destructive', onPress: () => resolve(true) },
+          ]);
+        });
+    
+    if (!confirmed || !adminToken) return;
+    
+    try {
+      await adminTriviaApi.deleteTematicaArea(adminToken, areaId);
+      showToast('success', 'Temática eliminada');
+      if (selectedTematicaId === areaId) {
+        setSelectedTematicaId(null);
+        setTematicaDetail(null);
+      }
+      await loadTematicaAreas();
+    } catch (err: any) {
+      showToast('error', err?.message || 'No se pudo eliminar la temática');
+    }
   };
 
   const currentSet = useMemo(() => sets.find((s) => s.id === selectedSetId), [sets, selectedSetId]);
@@ -1062,6 +1106,74 @@ export default function AdminPage() {
                 {selectedUserProgress.lastAttemptAt && (
                   <Text style={styles.detailRow}>Último intento: {new Date(selectedUserProgress.lastAttemptAt).toLocaleString()}</Text>
                 )}
+                
+                {loadingHistory ? (
+                  <ActivityIndicator size="small" color="#34C759" style={{ marginTop: 20 }} />
+                ) : userHistory.length > 0 ? (
+                  <View style={{ marginTop: 20 }}>
+                    <Text style={styles.chartTitle}>Evolución del puntaje (últimos 30 días)</Text>
+                    {(() => {
+                      const chartWidth = Dimensions.get('window').width - 80;
+                      const chartHeight = 200;
+                      const padding = { top: 20, right: 20, bottom: 30, left: 40 };
+                      const plotWidth = chartWidth - padding.left - padding.right;
+                      const plotHeight = chartHeight - padding.top - padding.bottom;
+                      const maxScore = Math.max(...userHistory.map(h => h.avgScore), 100);
+                      const minScore = Math.min(...userHistory.map(h => h.avgScore), 0);
+                      const scoreRange = maxScore - minScore || 100;
+                      
+                      const points = userHistory.map((h, i) => ({
+                        x: padding.left + (i / (userHistory.length - 1 || 1)) * plotWidth,
+                        y: padding.top + plotHeight - ((h.avgScore - minScore) / scoreRange) * plotHeight,
+                      }));
+                      
+                      const pathData = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
+                      
+                      return (
+                        <Svg width={chartWidth} height={chartHeight} style={{ backgroundColor: '#fff', borderRadius: 12 }}>
+                          {/* Grid lines */}
+                          {[0, 25, 50, 75, 100].map(val => {
+                            const y = padding.top + plotHeight - ((val - minScore) / scoreRange) * plotHeight;
+                            return (
+                              <Line key={val} x1={padding.left} y1={y} x2={chartWidth - padding.right} y2={y} stroke="#e2e8f0" strokeWidth="1" strokeDasharray="4,4" />
+                            );
+                          })}
+                          {/* Y axis labels */}
+                          {[0, 25, 50, 75, 100].map(val => {
+                            const y = padding.top + plotHeight - ((val - minScore) / scoreRange) * plotHeight;
+                            return (
+                              <SvgText key={`y-${val}`} x={padding.left - 10} y={y + 4} fontSize="10" fill="#64748b" textAnchor="end">
+                                {val}%
+                              </SvgText>
+                            );
+                          })}
+                          {/* X axis labels */}
+                          {userHistory.map((h, i) => {
+                            if (userHistory.length > 10 && i % Math.ceil(userHistory.length / 6) !== 0) return null;
+                            const date = new Date(h.date);
+                            const x = padding.left + (i / (userHistory.length - 1 || 1)) * plotWidth;
+                            return (
+                              <SvgText key={`x-${i}`} x={x} y={chartHeight - 10} fontSize="10" fill="#64748b" textAnchor="middle">
+                                {`${date.getDate()}/${date.getMonth() + 1}`}
+                              </SvgText>
+                            );
+                          })}
+                          {/* Line */}
+                          <Polyline points={points.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke="#34C759" strokeWidth="3" />
+                          {/* Points */}
+                          {points.map((p, i) => (
+                            <Circle key={i} cx={p.x} cy={p.y} r="4" fill="#34C759" stroke="#fff" strokeWidth="2" />
+                          ))}
+                        </Svg>
+                      );
+                    })()}
+                  </View>
+                ) : (
+                  <Text style={{ marginTop: 20, textAlign: 'center', color: '#666' }}>
+                    No hay suficientes datos para mostrar la gráfica
+                  </Text>
+                )}
+                
                 <TouchableOpacity style={styles.secondaryButton} onPress={() => setSelectedUserProgress(null)}>
                   <Text style={styles.secondaryButtonLabel}>Cerrar</Text>
                 </TouchableOpacity>
@@ -1308,6 +1420,35 @@ export default function AdminPage() {
                 value={resourceForm.deepDive}
                 onChangeText={(text) => setResourceForm((prev) => ({ ...prev, deepDive: text }))}
               />
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
+                <TouchableOpacity
+                  onPress={() => setResourceForm((prev) => ({ ...prev, highlighted: !prev.highlighted }))}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    padding: 8,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderWidth: 2,
+                      borderColor: '#666',
+                      borderRadius: 4,
+                      marginRight: 8,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      backgroundColor: resourceForm.highlighted ? '#2196F3' : 'transparent',
+                    }}
+                  >
+                    {resourceForm.highlighted && (
+                      <Text style={{ color: 'white', fontSize: 14, fontWeight: 'bold' }}>✓</Text>
+                    )}
+                  </View>
+                  <Text style={{ fontSize: 14 }}>Destacar recurso</Text>
+                </TouchableOpacity>
+              </View>
               <TextInput
                 style={[styles.input, { marginTop: 10 }]}
                 placeholder="Fuentes (separadas por comas)"
@@ -1459,6 +1600,7 @@ const styles = StyleSheet.create({
   detailCard: { backgroundColor: '#ecfdf5', borderRadius: 16, padding: 16, marginTop: 12 },
   detailTitle: { fontWeight: '700', color: '#047857', marginBottom: 8 },
   detailRow: { color: '#065f46', marginBottom: 4 },
+  chartTitle: { fontWeight: '600', color: '#047857', marginBottom: 12, fontSize: 15 },
   emptyState: { padding: 24, alignItems: 'center' },
   emptyTitle: { fontWeight: '700', fontSize: 16, color: '#0f172a' },
   emptySubtitle: { color: '#94a3b8', marginTop: 6, textAlign: 'center' },

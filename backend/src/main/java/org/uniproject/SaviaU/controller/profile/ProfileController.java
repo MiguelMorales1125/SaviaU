@@ -4,9 +4,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.uniproject.SaviaU.dto.OnboardRequest;
+import org.uniproject.SaviaU.dto.UserRankingDto;
 import org.uniproject.SaviaU.service.profile.OnboardingService;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -36,5 +38,14 @@ public class ProfileController {
         return onboardingService.getProfile(accessToken)
                 .map(ResponseEntity::ok)
                 .onErrorReturn(ResponseEntity.status(400).body(Map.of("message", "No se pudo obtener el perfil")));
+    }
+
+    @GetMapping("/ranking")
+    public Mono<ResponseEntity<List<UserRankingDto>>> getRanking(
+            @RequestParam String accessToken,
+            @RequestParam(defaultValue = "50") int limit) {
+        return onboardingService.getUserRanking(accessToken, limit)
+                .map(ResponseEntity::ok)
+                .onErrorReturn(ResponseEntity.status(400).build());
     }
 }

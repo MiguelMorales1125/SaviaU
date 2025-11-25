@@ -84,26 +84,47 @@ public class AdminTematicaManagementService {
     }
 
     private Mono<TematicaAreaDto> upsertAreaInternal(AdminTematicaAreaUpsertRequest request) {
+        log.info("🔧 upsertArea - Request: id={}, name={}", request.getId(), request.getName());
+        
         Map<String, Object> payload = new HashMap<>();
-        if (request.getId() != null && !request.getId().isBlank()) {
-            payload.put("id", request.getId());
-        }
         payload.put("name", request.getName());
         payload.put("summary", request.getSummary());
         payload.put("accent_color", request.getAccentColor());
         payload.put("hero_image", request.getHeroImage());
         payload.put("tagline", request.getTagline());
+        
+        log.info("🔧 upsertArea - Payload: {}", payload);
 
-        return adminDb().post()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/tematicas_areas")
-                        .queryParam("on_conflict", "id")
-                        .build())
-                .header("Prefer", "return=representation,resolution=merge-duplicates")
-                .bodyValue(payload)
-                .retrieve()
+        // Si hay ID, es una actualización (PATCH), si no hay ID es creación (POST)
+        WebClient.RequestHeadersSpec<?> request2;
+        if (request.getId() != null && !request.getId().isBlank()) {
+            // Actualización
+            log.info("🔧 upsertArea - Updating existing area with ID: {}", request.getId());
+            request2 = adminDb().patch()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/tematicas_areas")
+                            .queryParam("id", "eq." + request.getId())
+                            .build())
+                    .header("Prefer", "return=representation")
+                    .bodyValue(payload);
+        } else {
+            // Creación
+            log.info("🔧 upsertArea - Creating new area");
+            request2 = adminDb().post()
+                    .uri("/tematicas_areas")
+                    .header("Prefer", "return=representation")
+                    .bodyValue(payload);
+        }
+
+        return request2.retrieve()
                 .bodyToMono(LIST_OF_MAPS)
-                .map(rows -> rows.get(0))
+                .doOnError(error -> {
+                    log.error("❌ upsertArea - Error from Supabase: {}", error.getMessage(), error);
+                })
+                .map(rows -> {
+                    log.info("✅ upsertArea - Response from Supabase: {}", rows);
+                    return rows.get(0);
+                })
                 .flatMap(row -> {
                     String areaId = Objects.toString(row.get("id"), null);
                     if (areaId == null) {
@@ -116,10 +137,10 @@ public class AdminTematicaManagementService {
     }
 
     private Mono<TematicaResourceDto> upsertResourceInternal(AdminTematicaResourceUpsertRequest request) {
+        log.info("🔧 upsertResource - Request: id={}, areaId={}, title={}", 
+                request.getId(), request.getAreaId(), request.getTitle());
+        
         Map<String, Object> payload = new HashMap<>();
-        if (request.getId() != null && !request.getId().isBlank()) {
-            payload.put("id", request.getId());
-        }
         payload.put("area_id", request.getAreaId());
         payload.put("title", request.getTitle());
         payload.put("short_description", request.getShortDescription());
@@ -129,20 +150,40 @@ public class AdminTematicaManagementService {
         payload.put("estimated_time", request.getEstimatedTime());
         payload.put("fun_fact", request.getFunFact());
         payload.put("deep_dive", request.getDeepDive());
-        if (request.getHighlighted() != null) {
-            payload.put("highlighted", request.getHighlighted());
+        payload.put("is_highlighted", request.getHighlighted() != null ? request.getHighlighted() : false);
+        
+        log.info("🔧 upsertResource - Payload: {}", payload);
+        
+        // Si hay ID, es una actualización (PATCH), si no hay ID es creación (POST)
+        WebClient.RequestHeadersSpec<?> request2;
+        if (request.getId() != null && !request.getId().isBlank()) {
+            // Actualización
+            log.info("🔧 upsertResource - Updating existing resource with ID: {}", request.getId());
+            request2 = adminDb().patch()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/tematicas_resources")
+                            .queryParam("id", "eq." + request.getId())
+                            .build())
+                    .header("Prefer", "return=representation")
+                    .bodyValue(payload);
+        } else {
+            // Creación
+            log.info("🔧 upsertResource - Creating new resource");
+            request2 = adminDb().post()
+                    .uri("/tematicas_resources")
+                    .header("Prefer", "return=representation")
+                    .bodyValue(payload);
         }
 
-        return adminDb().post()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/tematicas_resources")
-                        .queryParam("on_conflict", "id")
-                        .build())
-                .header("Prefer", "return=representation,resolution=merge-duplicates")
-                .bodyValue(payload)
-                .retrieve()
+        return request2.retrieve()
                 .bodyToMono(LIST_OF_MAPS)
-                .map(rows -> rows.get(0))
+                .doOnError(error -> {
+                    log.error("❌ upsertResource - Error from Supabase: {}", error.getMessage(), error);
+                })
+                .map(rows -> {
+                    log.info("✅ upsertResource - Response from Supabase: {}", rows);
+                    return rows.get(0);
+                })
                 .flatMap(row -> {
                     String resourceId = Objects.toString(row.get("id"), null);
                     if (resourceId == null) {

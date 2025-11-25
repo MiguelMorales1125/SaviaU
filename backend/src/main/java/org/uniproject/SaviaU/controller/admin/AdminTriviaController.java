@@ -73,6 +73,13 @@ public class AdminTriviaController {
         return triviaService.getCohortProgress(extractToken(authorization), limit);
     }
 
+    @GetMapping("/history/{userId}")
+    public Mono<List<AdminTriviaHistoryDto>> userHistory(@RequestHeader("Authorization") String authorization,
+                                                         @PathVariable String userId,
+                                                         @RequestParam(value = "days", defaultValue = "30") int days) {
+        return triviaService.getUserHistory(extractToken(authorization), userId, days);
+    }
+
     private String extractToken(String header) {
         if (header == null || !header.startsWith("Bearer ")) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authorization inválido");
