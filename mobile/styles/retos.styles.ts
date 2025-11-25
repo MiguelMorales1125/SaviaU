@@ -1,18 +1,19 @@
-import { StyleSheet, Dimensions } from 'react-native';
+import { StyleSheet, Dimensions, Platform } from 'react-native';
 
 const { width } = Dimensions.get('window');
 // Tamaño del logo de resultados: aumenta en pantallas grandes y se restringe en móviles
 const logoSize = Math.min(Math.max(width * 0.12, 100), 150);
 
 export const retosStyles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    paddingTop: 12,
+    backgroundColor: '#f0fdf4'
+  },
+  container: {
+    paddingTop: 16,
     paddingBottom: 24,
-    paddingLeft: 0,
-    paddingRight: 0,
-    alignItems: 'stretch',
-    backgroundColor: '#ecf8f0',
+    paddingHorizontal: 12,
+    alignItems: 'center',
     minHeight: '100%'
   },
   header: {
@@ -24,6 +25,7 @@ export const retosStyles = StyleSheet.create({
   },
   cardRow: {
     width: '100%',
+    maxWidth: 600,
     flexDirection: 'column',
     gap: 16,
     alignItems: 'stretch',
@@ -33,17 +35,20 @@ export const retosStyles = StyleSheet.create({
     width: '100%',
     alignSelf: 'stretch',
     backgroundColor: '#ffffff',
-    padding: 18,
-    borderRadius: 0,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#e9ecef'
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#d1fae5',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3
   },
   // Variación para la vista de listado (retos disponibles)
   cardList: {
-    backgroundColor: '#ecf8f0',
-    borderTopWidth: 0,
-    borderBottomWidth: 0,
+    backgroundColor: '#ffffff',
+    borderColor: '#d1fae5',
   },
   cardRight: {
     display: 'none',
@@ -57,53 +62,56 @@ export const retosStyles = StyleSheet.create({
     height: '100%'
   },
   cardTitle: {
-    fontSize: 13,
-    color: '#198754',
+    fontSize: 14,
+    color: '#059669',
     fontWeight: '800',
-    marginBottom: 6,
+    marginBottom: 12,
     textTransform: 'uppercase',
-    letterSpacing: 0.5
+    letterSpacing: 1
   },
   question: {
     fontSize: 20,
-    fontWeight: '800',
-    marginBottom: 12,
-    color: '#212529'
+    fontWeight: '700',
+    marginBottom: 16,
+    color: '#1f2937',
+    lineHeight: 28
   },
   band: {
-    height: 6,
-    width: '100%',
-    backgroundColor: '#e6f4ec',
-    marginBottom: 10
+    height: 4,
+    width: 60,
+    backgroundColor: '#10b981',
+    marginBottom: 12,
+    borderRadius: 2
   },
   optionBtn: {
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 12,
     marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#e9ecef'
+    borderWidth: 2,
+    borderColor: '#e5e7eb'
   },
   option: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
   },
   // Botón de opción para listado de sets (ligeramente verdoso para combinar paleta)
   optionList: {
-    backgroundColor: '#f3faf6',
-    borderColor: '#d7eadf'
+    backgroundColor: '#ffffff',
+    borderColor: '#d1fae5',
   },
   optionDisabled: {
-    backgroundColor: '#f8f9fa',
-    opacity: 0.7,
-    borderColor: '#f1f3f5'
+    backgroundColor: '#f9fafb',
+    opacity: 0.6,
+    borderColor: '#e5e7eb'
   },
   optionCorrect: {
-    backgroundColor: '#d1e7dd',
-    borderColor: '#badbcc'
+    backgroundColor: '#d1fae5',
+    borderColor: '#10b981'
   },
   optionWrong: {
-    backgroundColor: '#f8d7da',
-    borderColor: '#f5c2c7'
+    backgroundColor: '#fee2e2',
+    borderColor: '#ef4444'
   },
   optionText: {
     color: '#212529',

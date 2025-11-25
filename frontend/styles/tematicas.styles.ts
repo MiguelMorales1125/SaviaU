@@ -40,24 +40,28 @@ export const tematicasStyles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: 20
+    paddingHorizontal: 20,
+    gap: 14
   },
   areaCard: {
     width: '48%',
-    borderRadius: 20,
-    marginBottom: 18,
+    maxWidth: 320,
+    aspectRatio: 0.88,
+    borderRadius: 18,
+    marginBottom: 14,
     padding: 16,
     shadowColor: '#000000',
     shadowOpacity: 0.15,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
     elevation: 5,
-    backgroundColor: '#ffffff'
+    backgroundColor: '#ffffff',
+    justifyContent: 'space-between'
   },
   areaCardImage: {
-    height: 110,
-    borderRadius: 16,
-    marginBottom: 12
+    height: '42%',
+    borderRadius: 14,
+    marginBottom: 10
   },
   areaCardTitle: {
     fontSize: 16,
@@ -86,7 +90,10 @@ export const tematicasStyles = StyleSheet.create({
   },
   detailContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 60
+    paddingBottom: 60,
+    maxWidth: 800,
+    alignSelf: 'center',
+    width: '100%'
   },
   backButton: {
     alignSelf: 'flex-start',

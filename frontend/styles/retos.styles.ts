@@ -1,18 +1,20 @@
-import { StyleSheet, Dimensions } from 'react-native';
+import { StyleSheet, Dimensions, Platform } from 'react-native';
 
 const { width } = Dimensions.get('window');
 // Tamaño del logo de resultados: aumenta en pantallas grandes y se restringe en móviles
 const logoSize = Math.min(Math.max(width * 0.12, 100), 150);
 
+
 export const retosStyles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    paddingTop: 12,
-    paddingBottom: 24,
-    paddingLeft: 0,
-    paddingRight: 0,
-    alignItems: 'stretch',
-    backgroundColor: '#ecf8f0',
+    backgroundColor: '#f0fdf4'
+  },
+  container: {
+    paddingTop: 24,
+    paddingBottom: 32,
+    paddingHorizontal: 16,
+    alignItems: 'center',
     minHeight: '100%'
   },
   header: {
@@ -24,8 +26,9 @@ export const retosStyles = StyleSheet.create({
   },
   cardRow: {
     width: '100%',
+    maxWidth: 1200,
     flexDirection: 'column',
-    gap: 16,
+    gap: 20,
     alignItems: 'stretch',
     justifyContent: 'flex-start'
   },
@@ -33,17 +36,27 @@ export const retosStyles = StyleSheet.create({
     width: '100%',
     alignSelf: 'stretch',
     backgroundColor: '#ffffff',
-    padding: 18,
-    borderRadius: 0,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#e9ecef'
+    padding: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#d1fae5',
+    ...(Platform.select({
+      web: {
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 3,
+      }
+    }) as any)
   },
   // Variación para la vista de listado (retos disponibles)
   cardList: {
-    backgroundColor: '#ecf8f0',
-    borderTopWidth: 0,
-    borderBottomWidth: 0,
+    backgroundColor: '#ffffff',
+    borderColor: '#d1fae5',
   },
   cardRight: {
     display: 'none',
@@ -57,91 +70,96 @@ export const retosStyles = StyleSheet.create({
     height: '100%'
   },
   cardTitle: {
-    fontSize: 13,
-    color: '#198754',
-    fontWeight: '800',
-    marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5
-  },
-  question: {
-    fontSize: 20,
+    fontSize: 14,
+    color: '#059669',
     fontWeight: '800',
     marginBottom: 12,
-    color: '#212529'
+    textTransform: 'uppercase',
+    letterSpacing: 1
+  },
+  question: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 20,
+    color: '#1f2937',
+    lineHeight: 32
   },
   band: {
-    height: 6,
-    width: '100%',
-    backgroundColor: '#e6f4ec',
-    marginBottom: 10
+    height: 4,
+    width: 80,
+    backgroundColor: '#10b981',
+    marginBottom: 16,
+    borderRadius: 2
   },
   optionBtn: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     borderRadius: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#e9ecef'
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
   },
   option: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
   },
   // Botón de opción para listado de sets (ligeramente verdoso para combinar paleta)
   optionList: {
-    backgroundColor: '#f3faf6',
-    borderColor: '#d7eadf'
+    backgroundColor: '#ffffff',
+    borderColor: '#d1fae5',
   },
   optionDisabled: {
-    backgroundColor: '#f8f9fa',
-    opacity: 0.7,
-    borderColor: '#f1f3f5'
+    backgroundColor: '#f9fafb',
+    opacity: 0.6,
+    borderColor: '#e5e7eb'
   },
   optionCorrect: {
-    backgroundColor: '#d1e7dd',
-    borderColor: '#badbcc'
+    backgroundColor: '#d1fae5',
+    borderColor: '#10b981'
   },
   optionWrong: {
-    backgroundColor: '#f8d7da',
-    borderColor: '#f5c2c7'
+    backgroundColor: '#fee2e2',
+    borderColor: '#ef4444'
   },
   optionText: {
-    color: '#212529',
-    fontWeight: '700'
+    color: '#1f2937',
+    fontWeight: '600',
+    fontSize: 16
   },
   feedbackBox: {
-    marginTop: 10,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#fff',
+    marginTop: 20,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#f9fafb',
     borderWidth: 1,
-    borderColor: '#e9ecef'
-    ,
-    minHeight: 24,
+    borderColor: '#e5e7eb',
+    minHeight: 60,
     justifyContent: 'center'
   },
   feedbackSuccess: {
-    backgroundColor: '#d1e7dd',
-    borderColor: '#badbcc'
+    backgroundColor: '#ecfdf5',
+    borderColor: '#10b981'
   },
   feedbackDanger: {
-    backgroundColor: '#f8d7da',
-    borderColor: '#f5c2c7'
+    backgroundColor: '#fef2f2',
+    borderColor: '#ef4444'
   },
   feedbackCorrect: {
-    color: '#0f5132',
-    fontWeight: '700'
+    color: '#047857',
+    fontWeight: '700',
+    fontSize: 16
   },
   feedbackWrong: {
-    color: '#842029',
-    fontWeight: '700'
+    color: '#dc2626',
+    fontWeight: '700',
+    fontSize: 16
   },
   // texto descriptivo agradable para la retroalimentación
   feedbackBody: {
-    marginTop: 6,
-    fontFamily: 'serif',
+    marginTop: 8,
     fontSize: 15,
-    lineHeight: 22,
+    lineHeight: 24,
+    color: '#374151'
   },
   badgeBtn: {
     marginTop: 12,
@@ -160,111 +178,173 @@ export const retosStyles = StyleSheet.create({
     fontWeight: '700'
   },
   secondaryBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
     backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#198754'
+    borderWidth: 2,
+    borderColor: '#10b981',
   },
   primaryBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: '#198754'
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: '#10b981',
+    ...(Platform.select({
+      web: {
+        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 2,
+      }
+    }) as any)
   },
   badgeBanner: {
-    marginTop: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#14532d',
+    marginTop: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: '#065f46',
     alignItems: 'center'
   },
   badgeBannerText: {
     color: '#fff',
-    fontWeight: '800'
+    fontWeight: '700',
+    fontSize: 15
   },
   resultScreen: {
     flex: 1,
-    backgroundColor: '#f8f9fa'
+    backgroundColor: '#f0fdf4'
   },
   resultWrapper: {
-    padding: 24,
+    padding: 32,
     alignItems: 'center',
     minHeight: '100%',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    backgroundColor: 'transparent'
   },
   resultCard: {
-    marginTop: 18,
-    backgroundColor: 'transparent',
-    padding: 0,
-    borderRadius: 0,
+    marginTop: 24,
+    backgroundColor: '#ffffff',
+    padding: 40,
+    borderRadius: 20,
     alignItems: 'center',
-    width: 420
+    maxWidth: 500,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#d1fae5',
+    ...(Platform.select({
+      web: {
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 5,
+      }
+    }) as any)
   },
   resultTitle: {
-    fontSize: 22,
-    fontWeight: '900',
+    fontSize: 28,
+    fontWeight: '800',
     color: '#111827'
   },
   resultIcon: {
     width: logoSize,
     height: logoSize,
-    marginBottom: 10
+    marginBottom: 16
   },
   trophyText: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#198754'
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#10b981',
+    marginTop: 8
   },
   pointsBox: {
     alignItems: 'center',
-    marginVertical: 10,
+    marginVertical: 16,
   },
   pointsNumber: {
-    fontSize: 32,
+    fontSize: 48,
     fontWeight: '900',
     color: '#111827',
-    lineHeight: 36,
+    lineHeight: 56,
   },
   pointsPercent: {
-    marginTop: 2,
-    fontSize: 15,
-    fontWeight: '800',
+    marginTop: 4,
+    fontSize: 18,
+    fontWeight: '700',
     color: '#6b7280',
   },
   continueBtn: {
-    marginTop: 8,
-    backgroundColor: '#198754',
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 12
+    marginTop: 16,
+    backgroundColor: '#10b981',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
   },
   // Sección de retroalimentación inferior (bajo el bloque principal)
   bottomSection: {
     width: '100%',
-    paddingHorizontal: 12,
-    paddingBottom: 16,
-    paddingTop: 8,
+    maxWidth: 1200,
+    paddingHorizontal: 0,
+    paddingBottom: 0,
+    paddingTop: 0,
   },
   bottomCard: {
     borderWidth: 1,
-    borderRadius: 10,
-    padding: 14,
-    // en pantallas grandes, centra el contenido y limita el ancho para que quede en el medio
-    maxWidth: 1100,
-    alignSelf: 'center'
+    borderRadius: 12,
+    padding: 20,
+    maxWidth: 1200,
+    alignSelf: 'center',
+    width: '100%',
+    ...(Platform.select({
+      web: {
+        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 2,
+      }
+    }) as any)
   },
   bottomTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 6,
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
   },
   bottomText: {
-    fontSize: 14,
-    color: '#374151',
-    lineHeight: 20,
+    fontSize: 15,
+    color: '#4b5563',
+    lineHeight: 22,
+  },
+  statsCard: {
+    backgroundColor: '#ffffff',
+    padding: 24,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#d1fae5',
+    ...(Platform.select({
+      web: {
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 3,
+      }
+    }) as any)
   }
 });
 

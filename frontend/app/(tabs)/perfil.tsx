@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, Image, TouchableOpacity, Alert, ScrollView, StyleSheet, Platform, Modal, Pressable, Animated, Dimensions } from "react-native";
+import { View, Text, TextInput, Image, TouchableOpacity, Alert, ScrollView, StyleSheet, Platform, Modal, Pressable, Animated, Dimensions, ActivityIndicator } from "react-native";
 import { useAuth } from "../../context/AuthContext";
 import { getApiUrl } from '../../config/api';
 import { tabsStyles } from '../../styles/tabs.styles';
 import * as ImagePicker from 'expo-image-picker';
 import { RankingWidget } from '../../components/ranking/RankingWidget';
+import { triviaApi, type TriviaStatsDto } from '../../services/trivia';
+import { tematicasApi, type TematicaAreaSummary } from '../../services/tematicas';
 // no router needed here
 
 export default function Perfil() {
@@ -25,6 +27,34 @@ export default function Perfil() {
   const [saving, setSaving] = useState(false);
   const initialSnapshot = useRef<any>(null);
   const [editing, setEditing] = useState<boolean>(false);
+  
+  // Estados para estadísticas
+  const [triviaStats, setTriviaStats] = useState<TriviaStatsDto | null>(null);
+  const [tematicasCount, setTematicasCount] = useState<number>(0);
+  const [statsLoading, setStatsLoading] = useState(false);
+  // Cargar estadísticas al montar el componente
+  useEffect(() => {
+    const loadStats = async () => {
+      setStatsLoading(true);
+      try {
+        // Cargar estadísticas de trivias si hay token
+        if (supabaseAccessToken) {
+          const stats = await triviaApi.getStats(supabaseAccessToken);
+          setTriviaStats(stats);
+        }
+        
+        // Cargar cantidad de temáticas disponibles
+        const areas = await tematicasApi.getAreas();
+        setTematicasCount(areas.length);
+      } catch (error) {
+        console.warn('Error cargando estadísticas:', error);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+    loadStats();
+  }, [supabaseAccessToken]);
+
   // Imagen predeterminada
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const defaultAvatar = require('../../assets/images/usuario.png');
@@ -488,12 +518,46 @@ export default function Perfil() {
 
           {/* Progresos y logros */}
           <View style={{ width: '100%', maxWidth: 920, alignSelf: 'center', marginTop: 18 }}>
-            <Text style={styles.sectionTitle}>Progresos y logros</Text>
-            <View style={styles.metricsRow}>
-              <View style={styles.metricCard}><Text style={styles.metricValue}>8</Text><Text style={styles.metricLabel}>Insignias</Text></View>
-              <View style={styles.metricCard}><Text style={styles.metricValue}>50%</Text><Text style={styles.metricLabel}>Áreas</Text></View>
-              <View style={styles.metricCard}><Text style={styles.metricValue}>20</Text><Text style={styles.metricLabel}>Noticias</Text></View>
-            </View>
+            <Text style={styles.sectionTitle}>Estadísticas de aprendizaje</Text>
+            {statsLoading ? (
+              <View style={{ padding: 40, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#10b981" />
+              </View>
+            ) : (
+              <View style={styles.metricsRow}>
+                <View style={[styles.metricCard, { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' }]}>
+                  <Text style={[styles.metricValue, { color: '#047857' }]}>{triviaStats?.totalAttempts || 0}</Text>
+                  <Text style={styles.metricLabel}>Quizzes realizados</Text>
+                </View>
+                <View style={[styles.metricCard, { backgroundColor: '#f0fdf4', borderColor: '#d1fae5' }]}>
+                  <Text style={[styles.metricValue, { color: '#10b981' }]}>{triviaStats?.totalCorrect || 0}</Text>
+                  <Text style={styles.metricLabel}>Respuestas correctas</Text>
+                </View>
+                <View style={[styles.metricCard, { backgroundColor: '#eff6ff', borderColor: '#bfdbfe' }]}>
+                  <Text style={[styles.metricValue, { color: '#1d4ed8' }]}>{tematicasCount}</Text>
+                  <Text style={styles.metricLabel}>Temáticas disponibles</Text>
+                </View>
+              </View>
+            )}
+            {triviaStats && triviaStats.totalAttempts > 0 && (
+              <View style={{ marginTop: 16, padding: 16, backgroundColor: '#ffffff', borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb' }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#1f2937', marginBottom: 12 }}>📊 Resumen de rendimiento</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-around', gap: 12 }}>
+                  <View style={{ flex: 1, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 24, fontWeight: '800', color: '#10b981' }}>{triviaStats.bestScore.toFixed(0)}%</Text>
+                    <Text style={{ fontSize: 13, color: '#6b7280', marginTop: 4 }}>Mejor puntaje</Text>
+                  </View>
+                  <View style={{ flex: 1, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 24, fontWeight: '800', color: '#059669' }}>{triviaStats.avgScore.toFixed(1)}%</Text>
+                    <Text style={{ fontSize: 13, color: '#6b7280', marginTop: 4 }}>Promedio</Text>
+                  </View>
+                  <View style={{ flex: 1, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 24, fontWeight: '800', color: '#1d4ed8' }}>{triviaStats.totalQuestionsAnswered}</Text>
+                    <Text style={{ fontSize: 13, color: '#6b7280', marginTop: 4 }}>Preguntas respondidas</Text>
+                  </View>
+                </View>
+              </View>
+            )}
           </View>
 
           {/* Información personal + Ranking (dos columnas) */}

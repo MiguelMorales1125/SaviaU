@@ -222,33 +222,41 @@ export default function Retos() {
     return (
       <View style={[styles.bottomCard, { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }]}>
         <Text style={styles.bottomTitle}>Tu progreso</Text>
-        <Text style={styles.bottomText}>Intentos: {stats.totalAttempts} | Mejor puntaje: {stats.bestScore}% | Promedio: {stats.avgScore}%</Text>
+        <Text style={styles.bottomText}>Intentos: {stats.totalAttempts} | Mejor puntaje: {stats.bestScore}% | Promedio: {stats.avgScore.toFixed(2)}%</Text>
         <Text style={[styles.bottomText, { marginTop: 8 }]}>Preguntas respondidas: {stats.totalQuestionsAnswered} • Aciertos: {stats.totalCorrect}</Text>
       </View>
     );
   };
 
   const renderSetList = () => (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.cardRow}>
-        <View style={[styles.cardLeft, styles.cardList]}>
-          <Text style={styles.cardTitle}>Retos disponibles</Text>
-          {setsLoading ? (
-            <ActivityIndicator />
-          ) : setsError ? (
-            <Text style={{ color: '#842029', fontWeight: '700' }}>{setsError}</Text>
-          ) : (
-            sets.map((set) => (
-              <TouchableOpacity key={set.id} style={[styles.optionBtn, styles.optionList]} onPress={() => handleSelectSet(set)}>
-                <Text style={styles.optionText}>{set.title}</Text>
-                {set.description ? <Text style={{ color: '#6c757d', marginTop: 4 }}>{set.description}</Text> : null}
-              </TouchableOpacity>
-            ))
-          )}
+    <View style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.cardRow}>
+          <View style={[styles.cardLeft, styles.cardList]}>
+            <View style={styles.band} />
+            <Text style={styles.cardTitle}>Retos disponibles</Text>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#1f2937', marginBottom: 16 }}>Elige un tema</Text>
+            {setsLoading ? (
+              <View style={{ paddingVertical: 30, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#10b981" />
+              </View>
+            ) : setsError ? (
+              <View style={{ padding: 16, backgroundColor: '#fef2f2', borderRadius: 12, borderWidth: 1, borderColor: '#fecaca' }}>
+                <Text style={{ color: '#dc2626', fontWeight: '700', textAlign: 'center' }}>{setsError}</Text>
+              </View>
+            ) : (
+              sets.map((set) => (
+                <TouchableOpacity key={set.id} style={[styles.optionBtn, styles.optionList]} onPress={() => handleSelectSet(set)}>
+                  <Text style={[styles.optionText, { fontSize: 16, marginBottom: 4 }]}>{set.title}</Text>
+                  {set.description ? <Text style={{ color: '#6b7280', fontSize: 14 }}>{set.description}</Text> : null}
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+          <View style={styles.bottomSection}>{renderStats()}</View>
         </View>
-        <View style={styles.bottomSection}>{renderStats()}</View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 
   if (!selectedSet) {
@@ -262,7 +270,8 @@ export default function Retos() {
     else if (pct >= 70) bannerColor = '#16a34a';
     else if (pct >= 50) bannerColor = '#f59e0b';
     return (
-      <ScrollView style={styles.resultScreen} contentContainerStyle={styles.resultWrapper}>
+      <View style={styles.screen}>
+        <ScrollView style={styles.resultScreen} contentContainerStyle={styles.resultWrapper}>
         <Text style={styles.resultTitle}>¡Reto completado!</Text>
         <View style={styles.resultCard}>
           <Image source={require('../../assets/images/Logo-SaviaU.png')} style={styles.resultIcon} resizeMode="contain" />
@@ -282,6 +291,7 @@ export default function Retos() {
         </View>
         <View style={styles.bottomSection}>{renderStats()}</View>
       </ScrollView>
+      </View>
     );
   }
 
@@ -289,7 +299,8 @@ export default function Retos() {
   const sideImage = sideImageByTopic[topicKey] ?? require('../../assets/images/test1.png');
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <View style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.container}>
       <View style={[styles.cardRow, isWide && { flexDirection: 'row', alignItems: 'stretch' }]}>
         <View style={[styles.cardLeft, isWide && { width: '60%', borderRightWidth: 0 }]}>
           <View style={styles.band} />
@@ -378,5 +389,6 @@ export default function Retos() {
       </View>
       <View style={styles.bottomSection}>{renderStats()}</View>
     </ScrollView>
+    </View>
   );
 }
